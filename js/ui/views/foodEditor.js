@@ -9,7 +9,8 @@ import { KINDS, allowedComponentKinds, canBeComposite } from '../../core/schema.
 import {
   perUnit, unitGrams, valuesFor, scale, canBePercent, toPercent, fromPercent, foodIssues,
 } from '../../core/calc.js';
-import { parseNum, inputStr, num, amountLabel } from '../../core/format.js';
+import { parseNum, inputStr, num, amountLabel, withUnit } from '../../core/format.js';
+import { CATALOG, toDisplay, fromDisplay, isEnergy } from '../../core/nutrients.js';
 import {
   activeNutrients, segmented, numberField, field, macroLine, dot, openFoodPicker, openAmountSheet,
 } from '../components.js';
@@ -49,7 +50,7 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
     if (draft.mode === 'percent' && !grams) draft.mode = 'amount';
     for (const n of nutrients) {
       const v = food?.source === 'direct' ? food.values?.[n.id] : null;
-      draft.inputs[n.id] = v == null ? '' : inputStr(usesPercent(n) ? toPercent(v, n, grams) : v);
+      draft.inputs[n.id] = v == null ? '' : inputStr(usesPercent(n) ? toPercent(v, grams) : toDisplay(n, v), isEnergy(n) ? 1 : 4);
     }
   }
 
@@ -60,7 +61,8 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
     for (const n of nutrients) {
       const typed = parseNum(draft.inputs[n.id]);
       if (typed == null) continue;
-      const value = usesPercent(n) ? (grams ? fromPercent(typed, n, grams) : 0) : typed;
+      // Typed in the nutrient's chosen unit (or %); stored in its base unit.
+      const value = usesPercent(n) ? (grams ? fromPercent(typed, grams) : 0) : fromDisplay(n, typed);
       values[n.id] = Number(value.toFixed(6)); // drop floating-point dust like 3.5000000000000004
     }
     return values;
@@ -80,8 +82,11 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
     const unit = draft.unitType === 'mass'
       ? { type: 'mass', grams: parseNum(draft.massGrams) }
       : { type: 'piece', name: draft.pieceName.trim(), grams: directGrams() };
-    // Keep values of nutrients that are hidden right now, so they aren't lost.
-    return { ...base, unit, values: { ...(food?.source === 'direct' ? food.values : {}), ...typedValues() }, inputMode: draft.mode, components: [] };
+    // Keep values of nutrients this version of the app doesn't know (from a newer
+    // or older version), so they aren't lost; a cleared box removes its value.
+    const known = new Set(CATALOG.map((n) => n.id));
+    const kept = Object.fromEntries(Object.entries(food?.source === 'direct' ? food.values || {} : {}).filter(([id]) => !known.has(id)));
+    return { ...base, unit, values: { ...kept, ...typedValues() }, inputMode: draft.mode, components: [] };
   }
 
   function validate() {
@@ -95,6 +100,14 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
     for (const n of nutrients) {
       const text = draft.inputs[n.id].trim();
       if (text && (parseNum(text) == null || parseNum(text) < 0)) return `${n.name} isn't a valid number.`;
+    }
+    // "Of which" can't be more than the whole (labels round, hence the small margin).
+    const values = typedValues();
+    for (const n of nutrients.filter((x) => x.parent)) {
+      const parent = nutrients.find((p) => p.id === n.parent);
+      if ((values[n.id] ?? 0) > (values[parent.id] ?? 0) + 0.05) {
+        return `${n.name} (${withUnit(n, values[n.id])}) can't be more than ${parent.name.toLowerCase()} (${withUnit(parent, values[parent.id] ?? 0)}).`;
+      }
     }
     return null;
   }
@@ -149,7 +162,9 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
         if (!canBePercent(n)) continue;
         const typed = parseNum(draft.inputs[n.id]);
         if (typed == null) continue;
-        draft.inputs[n.id] = inputStr(mode === 'percent' ? toPercent(typed, n, grams) : fromPercent(typed, n, grams));
+        draft.inputs[n.id] = inputStr(mode === 'percent'
+          ? toPercent(fromDisplay(n, typed), grams)
+          : toDisplay(n, fromPercent(typed, grams)), 4);
       }
     }
     draft.mode = mode;
@@ -179,7 +194,9 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
         value: draft.inputs[n.id], suffix: usesPercent(n) ? '%' : n.unit, label: n.name,
         onInput: (t) => { draft.inputs[n.id] = t; },
       });
-      return h('div', { class: 'value-row' }, h('div', { class: 'value-name' }, dot(n), n.name), box.el);
+      return n.depth
+        ? h('div', { class: 'value-row sub' }, h('div', { class: 'value-name' }, `of which ${n.name.toLowerCase()}`), box.el)
+        : h('div', { class: 'value-row' }, h('div', { class: 'value-name' }, dot(n), n.name), box.el);
     });
     const section = h('section', { class: 'form-section' },
       h('div', { class: 'section-head' }, heading, modeSeg), rows, hint);

@@ -5,7 +5,7 @@
 // A composite food (built from components) has no stored values: they are
 // worked out from its components every time.
 
-import { MASS_FACTORS, KINDS } from './schema.js';
+import { KINDS } from './schema.js';
 
 const MAX_DEPTH = 4; // meal -> dish -> ingredient is 3 deep; this is only a safety net
 
@@ -123,10 +123,11 @@ export function foodIssues(food, foods) {
   return issues;
 }
 
-// Percentages: "13% protein" of a 100 g unit is 13 g. Only for mass nutrients.
-export const canBePercent = (nutrient) => MASS_FACTORS[nutrient.unit] != null;
-export const toPercent = (value, nutrient, grams) => (value * MASS_FACTORS[nutrient.unit]) / grams * 100;
-export const fromPercent = (pct, nutrient, grams) => (pct / 100) * grams / MASS_FACTORS[nutrient.unit];
+// Percentages: "13% protein" of a 100 g unit is 13 g. Only for weight nutrients,
+// whose stored values are in grams.
+export const canBePercent = (nutrient) => nutrient.dimension === 'mass';
+export const toPercent = (grams, unitGrams) => (grams / unitGrams) * 100;
+export const fromPercent = (pct, unitGrams) => (pct / 100) * unitGrams;
 
 /** Live entries grouped by day: Map 'YYYY-MM-DD' -> entries in the order added. */
 export function entriesByDate(db) {

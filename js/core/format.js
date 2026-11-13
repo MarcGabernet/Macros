@@ -1,6 +1,7 @@
 // Turning numbers and amounts into text, and typed text back into numbers.
 
-import { KINDS, isEnergyUnit } from './schema.js';
+import { KINDS } from './schema.js';
+import { toDisplay, isEnergy } from './nutrients.js';
 import { LOCALE } from './dates.js';
 import { unitGrams, isComposite } from './calc.js';
 
@@ -26,8 +27,11 @@ export function inputStr(value, decimals = 2) {
   return String(Number(Number(value).toFixed(decimals)));
 }
 
+/** A stored (base unit) value as text in the nutrient's chosen unit. */
 export function nutrientNum(nutrient, value) {
-  return isEnergyUnit(nutrient.unit) ? num(Math.round(value || 0), 0) : num(value || 0, 1);
+  const shown = toDisplay(nutrient, value || 0);
+  if (isEnergy(nutrient)) return num(Math.round(shown), 0);
+  return num(shown, Math.abs(shown) < 1 && shown !== 0 ? 2 : 1);
 }
 
 export const withUnit = (nutrient, value) => `${nutrientNum(nutrient, value)} ${nutrient.unit}`;

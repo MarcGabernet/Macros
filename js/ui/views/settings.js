@@ -1,8 +1,9 @@
 // Settings: the nutrients you track, Drive sync, and backups.
 
-import { h, icon, openSheet, confirmSheet, toast } from '../dom.js';
+import { h, icon, openSheet, confirmSheet, toast, add } from '../dom.js';
 import { store } from '../../core/store.js';
-import { NUTRIENT_UNITS, COLOR_SLOTS, SCHEMA_VERSION, normalizeDb } from '../../core/schema.js';
+import { SCHEMA_VERSION, normalizeDb } from '../../core/schema.js';
+import { toDisplay, fromDisplay, isEnergy } from '../../core/nutrients.js';
 import { parseNum, inputStr, withUnit } from '../../core/format.js';
 import { today, LOCALE } from '../../core/dates.js';
 import { activeNutrients, segmented, numberField, field, dot } from '../components.js';
@@ -10,72 +11,47 @@ import { sync } from '../../sync/engine.js';
 import { redirectUri } from '../../sync/google.js';
 import { APP_VERSION } from '../../config.js';
 
+/** Change how a nutrient is shown (unit) and its daily target. The list itself is fixed in code. */
 function openNutrientEditor(nutrient) {
-  const existing = activeNutrients();
-  const used = new Set(existing.map((n) => n.color));
-  const draft = {
-    name: nutrient?.name ?? '',
-    short: nutrient?.short ?? '',
-    unit: nutrient?.unit ?? 'g',
-    color: nutrient?.color ?? (COLOR_SLOTS.find((c) => !used.has(c)) || COLOR_SLOTS[0]),
-    target: inputStr(nutrient?.target),
-  };
-  const sheet = openSheet({ title: nutrient ? 'Edit nutrient' : 'New nutrient' });
+  const draft = { unit: nutrient.unit, target: nutrient.target ? inputStr(toDisplay(nutrient, nutrient.target), 4) : '' };
+  const sheet = openSheet({ title: nutrient.depth ? `Of which ${nutrient.name.toLowerCase()}` : nutrient.name });
   const error = h('div', { class: 'form-error', role: 'alert' });
+  const shown = () => ({ ...nutrient, unit: draft.unit });
 
-  const nameInput = h('input', {
-    class: 'input', type: 'text', placeholder: 'e.g. Fibre', autocomplete: 'off', 'aria-label': 'Name', value: draft.name,
-    onInput: () => { draft.name = nameInput.value; },
-  });
-  const shortInput = h('input', {
-    class: 'input', type: 'text', placeholder: 'e.g. Fib', maxlength: '5', autocomplete: 'off', autocapitalize: 'none',
-    'aria-label': 'Short label', value: draft.short,
-    onInput: () => { draft.short = shortInput.value; },
-  });
   const targetBox = numberField({
     value: draft.target, placeholder: 'none', suffix: draft.unit, label: 'Daily target',
     onInput: (t) => { draft.target = t; },
   });
-  const swatches = h('div', { class: 'swatches', role: 'group', 'aria-label': 'Colour' });
-  const paintSwatches = () => swatches.replaceChildren(...COLOR_SLOTS.map((c) => h('button', {
-    type: 'button', class: `swatch${c === draft.color ? ' on' : ''}`, style: { '--c': `var(--c-${c})` },
-    'aria-label': c, 'aria-pressed': String(c === draft.color),
-    onClick: () => { draft.color = c; paintSwatches(); },
-  })));
-  paintSwatches();
 
-  async function remove() {
-    const ok = await confirmSheet({
-      title: `Delete ${nutrient.name}?`,
-      message: 'It stops showing everywhere. The values already typed into your foods are kept, in case you add it back.',
-    });
-    if (!ok) return;
-    store.remove('nutrients', nutrient.id);
-    sheet.close();
+  function changeUnit(unit) {
+    // Keep the same target, re-expressed in the new unit.
+    const typed = parseNum(draft.target);
+    if (typed != null) {
+      const base = fromDisplay(shown(), typed);
+      draft.unit = unit;
+      draft.target = inputStr(toDisplay(shown(), base), 4);
+      targetBox.input.value = draft.target;
+    } else draft.unit = unit;
+    targetBox.setSuffix(unit);
   }
 
   function save() {
-    const name = draft.name.trim();
-    if (!name) { error.textContent = 'Give it a name.'; return; }
-    const target = draft.target.trim() ? parseNum(draft.target) : null;
-    if (draft.target.trim() && !(target > 0)) { error.textContent = 'The target must be a number above zero, or empty.'; return; }
+    const typed = draft.target.trim() ? parseNum(draft.target) : null;
+    if (draft.target.trim() && !(typed > 0)) { error.textContent = 'The target must be a number above zero, or empty.'; return; }
     store.put('nutrients', {
-      ...(nutrient || { order: Math.max(-1, ...existing.map((n) => n.order ?? 0)) + 1 }),
-      name, short: draft.short.trim() || name.slice(0, 3), unit: draft.unit, color: draft.color, target,
+      ...(store.get('nutrients', nutrient.id) || {}), id: nutrient.id,
+      unit: draft.unit, target: typed == null ? null : fromDisplay(shown(), typed),
     });
     sheet.close();
   }
 
-  sheet.body.append(h('div', { class: 'form' },
-    field('Name', nameInput),
-    field('Measured in', segmented(NUTRIENT_UNITS.map((u) => ({ value: u, label: u })), draft.unit,
-      (v) => { draft.unit = v; targetBox.setSuffix(v); }, { label: 'Unit' })),
-    field('Short label', shortInput, 'Shown in compact lists, like "P 12".'),
-    field('Daily target', targetBox.el, 'Optional. With a target you get a progress bar on each day.'),
-    field('Colour', swatches),
-    nutrient ? h('button', { class: 'btn btn-danger-ghost btn-block', type: 'button', onClick: remove }, icon('trash', 16), 'Delete nutrient') : null));
-  sheet.foot.append(error, h('button', { class: 'btn btn-primary btn-block', type: 'button', onClick: save }, nutrient ? 'Save' : 'Add nutrient'));
-  if (!nutrient) nameInput.focus();
+  add(sheet.body, h('div', { class: 'form' },
+    nutrient.units.length > 1
+      ? field('Show in', segmented(nutrient.units.map((u) => ({ value: u, label: u })), draft.unit, changeUnit, { label: 'Unit' }),
+        isEnergy(nutrient) ? '1 kcal = 4.184 kJ. Everything already logged converts.' : 'Everything already logged converts.')
+      : null,
+    field('Daily target', targetBox.el, 'Optional. With a target you get a progress bar on each day.')));
+  sheet.foot.append(error, h('button', { class: 'btn btn-primary btn-block', type: 'button', onClick: save }, 'Save'));
 }
 
 function exportBackup() {
@@ -173,17 +149,15 @@ export function renderSettings() {
     h('header', { class: 'view-head' }, h('div', {}, h('h1', {}, 'Settings'))),
 
     h('section', {},
-      h('div', { class: 'section-head' },
-        h('h2', {}, 'Nutrients'),
-        h('button', { class: 'btn btn-small', type: 'button', onClick: () => openNutrientEditor() }, icon('plus', 16), 'Add')),
-      h('div', { class: 'card list' }, nutrients.map((n) => h('div', { class: 'row-wrap' },
+      h('div', { class: 'section-head' }, h('h2', {}, 'Nutrients')),
+      h('div', { class: 'card list' }, nutrients.map((n) => h('div', { class: `row-wrap${n.depth ? ' sub-row' : ''}` },
         h('button', { class: 'row', type: 'button', onClick: () => openNutrientEditor(n) },
           h('div', { class: 'row-main' },
-            h('div', { class: 'row-title' }, dot(n), n.name),
-            h('div', { class: 'row-sub' }, `Measured in ${n.unit}`)),
+            h('div', { class: 'row-title' }, n.depth ? `of which ${n.name.toLowerCase()}` : [dot(n), n.name]),
+            h('div', { class: 'row-sub' }, `In ${n.unit}`)),
           h('div', { class: 'row-side' }, h('span', { class: 'macro-line' },
             h('span', { class: n.target > 0 ? 'macro-main' : 'macro-part' }, n.target > 0 ? `${withUnit(n, n.target)} a day` : 'No target'))))))),
-      h('p', { class: 'section-note' }, 'These are the values every food carries. Add any others you want to follow, such as fibre, sugar or salt.')),
+      h('p', { class: 'section-note' }, 'Tap one to set a daily target or, where it makes sense, change its unit.')),
 
     h('section', {},
       h('div', { class: 'section-head' }, h('h2', {}, 'Week starts on')),

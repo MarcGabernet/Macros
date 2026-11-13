@@ -2,19 +2,24 @@
 
 import { h, icon, openSheet, add } from './dom.js';
 import { store } from '../core/store.js';
-import { KINDS, KIND_ORDER, isEnergyUnit } from '../core/schema.js';
+import { KINDS, KIND_ORDER } from '../core/schema.js';
+import { resolveNutrients, isEnergy } from '../core/nutrients.js';
 import {
   perUnit, valuesFor, allowedAmountTypes, defaultAmount, convertAmount, foodIssues, isComposite,
 } from '../core/calc.js';
 import { nutrientNum, withUnit, unitLabel, amountSuffix, parseNum, inputStr, pieceName } from '../core/format.js';
 import { openFoodEditor } from './views/foodEditor.js';
 
-/** The nutrients in use, in display order. The first one is the headline. */
+/**
+ * The nutrients, with your unit and target settings, in label order. The first
+ * one (energy) is the headline. Sub-nutrients ("of which ...") have depth 1.
+ */
 export function activeNutrients(db = store.db) {
-  return Object.values(db.nutrients)
-    .filter((n) => !n.deleted)
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name));
+  return resolveNutrients(db.nutrients);
 }
+
+/** The sub-nutrients ("of which ...") listed under a nutrient. */
+export const childrenOf = (nutrient, nutrients) => nutrients.filter((n) => n.parent === nutrient.id);
 
 const colorVar = (nutrient) => `var(--c-${nutrient.color || 'blue'})`;
 
@@ -22,12 +27,12 @@ export function dot(nutrient) {
   return h('span', { class: 'dot', style: { '--c': colorVar(nutrient) } });
 }
 
-/** "248 kcal · P 12 · C 30 · F 4": a compact line for list rows. */
+/** "248 kcal · P 12 · C 30 · F 4": a compact line for list rows (the nutrients marked `line`). */
 export function macroLine(values, nutrients, { limit = 6 } = {}) {
   const line = h('span', { class: 'macro-line' });
-  nutrients.slice(0, limit).forEach((n, i) => {
+  nutrients.filter((n) => n.line).sort((a, b) => a.line - b.line).slice(0, limit).forEach((n, i) => {
     const v = values[n.id] || 0;
-    const text = isEnergyUnit(n.unit) ? `${nutrientNum(n, v)} ${n.unit}` : `${n.short || n.name} ${nutrientNum(n, v)}`;
+    const text = isEnergy(n) ? `${nutrientNum(n, v)} ${n.unit}` : `${n.short || n.name} ${nutrientNum(n, v)}`;
     line.append(h('span', { class: i === 0 ? 'macro-main' : 'macro-part' }, text));
   });
   return line;
@@ -42,16 +47,16 @@ export function meter(value, target, nutrient) {
   }, h('div', { class: 'meter-fill', style: { width: `${(ratio * 100).toFixed(1)}%` } }));
 }
 
-// Rows of 3 tiles, except where that would leave one alone on the last row.
-const tileColumns = (count) => (count <= 3 ? count : count % 3 === 1 ? 2 : 3);
+// Two tiles per row (room for the "of which" lines); three or fewer fit on one row.
+const tileColumns = (count, hasSubs) => (count <= 3 && !hasSubs ? count : 2);
 
 /**
  * The summary of a set of values: the first nutrient as a headline number,
  * the rest as tiles. `days` scales the daily targets (1 for a single day).
  */
 export function summaryCard(values, nutrients, { days = 1, caption } = {}) {
-  const [main, ...rest] = nutrients;
-  if (!main) return h('div', { class: 'card empty' }, 'No nutrients to show. Add one in Settings.');
+  const [main, ...others] = nutrients;
+  const rest = others.filter((n) => !n.depth);
   const target = main.target > 0 ? main.target * days : null;
   const value = values[main.id] || 0;
   const left = target != null ? target - value : null;
@@ -63,14 +68,19 @@ export function summaryCard(values, nutrients, { days = 1, caption } = {}) {
         h('span', { class: 'hero-unit' }, target != null ? `/ ${withUnit(main, target)}` : main.unit)),
       target != null ? meter(value, target, main) : null,
       target != null ? h('div', { class: 'hero-note' }, left >= 0 ? `${withUnit(main, left)} left` : `${withUnit(main, -left)} over`) : null),
-    rest.length ? h('div', { class: 'tiles', style: { gridTemplateColumns: `repeat(${tileColumns(rest.length)}, minmax(0, 1fr))` } }, rest.map((n) => {
+    rest.length ? h('div', { class: 'tiles', style: { gridTemplateColumns: `repeat(${tileColumns(rest.length, nutrients.some((x) => x.depth))}, minmax(0, 1fr))` } }, rest.map((n, i) => {
       const t = n.target > 0 ? n.target * days : null;
       const v = values[n.id] || 0;
-      return h('div', { class: 'tile' },
+      // A last tile left alone on its row takes the full width.
+      const alone = i === rest.length - 1 && rest.length % 2 === 1 && rest.length > 3;
+      return h('div', { class: 'tile', style: alone ? { gridColumn: '1 / -1' } : null },
         h('div', { class: 'tile-label' }, dot(n), n.name),
         h('div', { class: 'tile-value' }, nutrientNum(n, v), h('span', { class: 'tile-unit' }, ` ${n.unit}`)),
         t != null ? meter(v, t, n) : null,
-        t != null ? h('div', { class: 'tile-note' }, `of ${withUnit(n, t)}`) : null);
+        t != null ? h('div', { class: 'tile-note' }, `of ${withUnit(n, t)}`) : null,
+        childrenOf(n, nutrients).map((c) => h('div', { class: 'tile-sub' },
+          h('span', { class: 'tile-sub-name' }, c.brief || c.name),
+          h('span', { class: 'tile-sub-value' }, withUnit(c, values[c.id] || 0)))));
     })) : null);
 }
 

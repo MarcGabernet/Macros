@@ -30,36 +30,15 @@ export const KIND_ORDER = ['ingredient', 'dish', 'meal'];
 export const allowedComponentKinds = (kind) => KINDS[kind]?.components ?? [];
 export const canBeComposite = (kind) => allowedComponentKinds(kind).length > 0;
 
-// Units a nutrient can be measured in. Those with a mass factor (grams per
-// unit) can also be entered as a percentage of a food's weight.
-export const NUTRIENT_UNITS = ['g', 'mg', 'µg', 'kcal', 'kJ'];
-export const MASS_FACTORS = { g: 1, mg: 1e-3, 'µg': 1e-6 };
-export const isEnergyUnit = (unit) => unit === 'kcal' || unit === 'kJ';
-
-// Colour slots (defined in CSS for light and dark). Fixed order, never cycled.
-export const COLOR_SLOTS = ['orange', 'blue', 'yellow', 'magenta', 'aqua', 'green', 'violet', 'red'];
-
 // Ways to say "how much" of a food: used for what you eat and for recipe parts.
 export const AMOUNT_TYPES = ['grams', 'units', 'percent'];
-
-// The nutrients a new install starts with. `updatedAt: 0` means any edit made
-// on any device wins over these defaults when devices merge.
-export function defaultNutrients() {
-  const base = { target: null, createdAt: 0, updatedAt: 0 };
-  return [
-    { ...base, id: 'kcal', name: 'Calories', short: 'Cal', unit: 'kcal', color: 'orange', order: 0 },
-    { ...base, id: 'protein', name: 'Protein', short: 'P', unit: 'g', color: 'blue', order: 1 },
-    { ...base, id: 'carbs', name: 'Carbs', short: 'C', unit: 'g', color: 'yellow', order: 2 },
-    { ...base, id: 'fat', name: 'Fat', short: 'F', unit: 'g', color: 'magenta', order: 3 },
-  ];
-}
 
 export const DEFAULT_SETTINGS = { weekStart: 1, updatedAt: 0 }; // 1 = Monday, 0 = Sunday
 
 export function emptyDb() {
-  const db = { schema: SCHEMA_VERSION, nutrients: {}, foods: {}, entries: {}, settings: { ...DEFAULT_SETTINGS } };
-  for (const n of defaultNutrients()) db.nutrients[n.id] = n;
-  return db;
+  // `nutrients` holds only your settings per nutrient ({ unit, target });
+  // the nutrients themselves are defined in nutrients.js.
+  return { schema: SCHEMA_VERSION, nutrients: {}, foods: {}, entries: {}, settings: { ...DEFAULT_SETTINGS } };
 }
 
 // Bring any stored or downloaded document up to the current shape.

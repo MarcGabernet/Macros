@@ -19,8 +19,8 @@ function totalsTable(stats, nutrients, title) {
     h('div', { class: 'card' },
       h('table', { class: 'totals' },
         h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, 'Nutrient'), h('th', { scope: 'col' }, 'Total'), h('th', { scope: 'col' }, 'Daily average'))),
-        h('tbody', {}, nutrients.map((n) => h('tr', {},
-          h('th', { scope: 'row' }, dot(n), n.name),
+        h('tbody', {}, nutrients.map((n) => h('tr', { class: n.depth ? 'sub' : null },
+          h('th', { scope: 'row' }, n.depth ? `of which ${n.name.toLowerCase()}` : [dot(n), n.name]),
           h('td', {}, withUnit(n, stats.total[n.id] || 0)),
           h('td', {}, stats.logged ? withUnit(n, stats.average[n.id] || 0) : '–'))))),
       stats.logged ? h('div', { class: 'table-note' }, 'The average counts only the days with something logged.') : null));
