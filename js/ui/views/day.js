@@ -134,7 +134,7 @@ export function renderDay({ ui, go }) {
     h('section', {},
       h('div', { class: 'section-head' },
         h('h2', {}, 'Eaten'),
-        entries.length ? h('span', { class: 'muted' }, `${entries.length} item${entries.length > 1 ? 's' : ''}`) : null),
+        entries.length ? h('button', { class: 'btn btn-primary btn-small', type: 'button', onClick: () => logFood(ui.date) }, icon('plus', 16), 'Add food') : null),
       entries.length
         ? h('div', { class: 'card list' }, rows)
         : h('div', { class: 'card' }, emptyState('Nothing logged yet', 'Add what you ate and the totals appear above',

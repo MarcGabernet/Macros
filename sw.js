@@ -3,14 +3,14 @@
 // Every file is fetched from the network first (so an update shows up the next
 // time the app is opened) and a copy is kept; offline, the kept copy is used.
 
-const CACHE = 'macros-v5';
+const CACHE = 'macros-v6';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/main.js', 'js/config.js',
   'js/core/schema.js', 'js/core/store.js', 'js/core/calc.js', 'js/core/merge.js', 'js/core/dates.js', 'js/core/format.js', 'js/core/nutrients.js', 'js/core/weight.js',
-  'js/sync/google.js', 'js/sync/engine.js',
+  'js/sync/google.js', 'js/sync/engine.js', 'js/sync/foodfacts.js', 'js/vendor/zxing.min.js',
   'js/ui/dom.js', 'js/ui/components.js', 'js/ui/charts.js', 'js/ui/theme.js',
-  'js/ui/views/day.js', 'js/ui/views/calendar.js', 'js/ui/views/foods.js', 'js/ui/views/foodEditor.js', 'js/ui/views/settings.js',
+  'js/ui/views/day.js', 'js/ui/views/calendar.js', 'js/ui/views/foods.js', 'js/ui/views/foodEditor.js', 'js/ui/views/settings.js', 'js/ui/views/scanner.js',
   'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 

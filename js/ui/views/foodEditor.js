@@ -17,8 +17,14 @@ import {
 
 const listKinds = (kinds) => kinds.map((k) => KINDS[k].label.toLowerCase()).join(' or ');
 
-export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
-  const k = food?.kind || kind;
+/**
+ * `food`: an existing food to edit. Otherwise a new one of `kind`, optionally
+ * pre-filled from `initial` (e.g. a scanned product: { name, unit, values, barcode, sourceNote }).
+ */
+export function openFoodEditor({ food, kind, initialName = '', initial = null, onSaved } = {}) {
+  const k = food?.kind || initial?.kind || kind;
+  // Where the form's starting values come from: the food being edited, or the pre-fill.
+  const src = food || (initial ? { source: 'direct', ...initial } : null);
   const kindLabel = KINDS[k].label.toLowerCase();
   const partKinds = allowedComponentKinds(k);
   const composable = canBeComposite(k);
@@ -26,15 +32,16 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
 
   // What is being edited. Numbers stay as typed text until saving.
   const draft = {
-    name: food?.name ?? initialName,
-    source: food ? food.source : (composable ? 'components' : 'direct'),
-    unitType: food?.unit?.type ?? (composable ? 'piece' : 'mass'),
-    massGrams: food?.unit?.type === 'mass' ? inputStr(food.unit.grams) : '100',
-    pieceName: food?.unit?.name ?? '',
-    pieceGrams: food?.unit?.type === 'piece' ? inputStr(food.unit.grams) : '',
-    mode: food?.inputMode ?? 'amount', // 'amount' | 'percent': how values are typed
+    name: src?.name ?? initialName,
+    source: src ? src.source : (composable ? 'components' : 'direct'),
+    unitType: src?.unit?.type ?? (composable ? 'piece' : 'mass'),
+    massGrams: src?.unit?.type === 'mass' ? inputStr(src.unit.grams) : '100',
+    pieceName: src?.unit?.name ?? '',
+    pieceGrams: src?.unit?.type === 'piece' ? inputStr(src.unit.grams) : '',
+    mode: src?.inputMode ?? 'amount', // 'amount' | 'percent': how values are typed
+    barcode: src?.barcode ?? '',
     inputs: {},
-    components: (food?.components ?? []).map((c) => ({ foodId: c.foodId, amount: { ...c.amount } })),
+    components: (src?.components ?? []).map((c) => ({ foodId: c.foodId, amount: { ...c.amount } })),
   };
 
   /** Grams in one unit while typing values directly, or null. */
@@ -49,7 +56,7 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
     const grams = directGrams();
     if (draft.mode === 'percent' && !grams) draft.mode = 'amount';
     for (const n of nutrients) {
-      const v = food?.source === 'direct' ? food.values?.[n.id] : null;
+      const v = src?.source === 'direct' ? src.values?.[n.id] : null;
       draft.inputs[n.id] = v == null ? '' : inputStr(usesPercent(n) ? toPercent(v, grams) : toDisplay(n, v), isEnergy(n) ? 1 : 4);
     }
   }
@@ -63,7 +70,8 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
       if (typed == null) continue;
       // Typed in the nutrient's chosen unit (or %); stored in its base unit.
       const value = usesPercent(n) ? (grams ? fromPercent(typed, grams) : 0) : fromDisplay(n, typed);
-      values[n.id] = Number(value.toFixed(6)); // drop floating-point dust like 3.5000000000000004
+      // Drop floating-point dust (3.5000000000000004) without losing tiny µg amounts (2.5 µg = 0.0000025 g).
+      values[n.id] = Number(value.toPrecision(12));
     }
     return values;
   }
@@ -71,6 +79,9 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
   /** The food record the draft describes. */
   function build() {
     const base = { ...(food || {}), kind: k, name: draft.name.trim(), source: draft.source };
+    // A product barcode, so scanning it again finds this food (ingredients only).
+    const code = k === 'ingredient' ? draft.barcode.replace(/\D/g, '') : '';
+    if (code) base.barcode = code; else delete base.barcode;
     if (draft.source === 'components') {
       return {
         ...base,
@@ -85,7 +96,7 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
     // Keep the values of nutrients that aren't shown here (switched off in Settings,
     // or unknown to this version of the app) so they aren't lost; a cleared box removes its value.
     const shown = new Set(nutrients.map((n) => n.id));
-    const kept = Object.fromEntries(Object.entries(food?.source === 'direct' ? food.values || {} : {}).filter(([id]) => !shown.has(id)));
+    const kept = Object.fromEntries(Object.entries(src?.source === 'direct' ? src.values || {} : {}).filter(([id]) => !shown.has(id)));
     return { ...base, unit, values: { ...kept, ...typedValues() }, inputMode: draft.mode, components: [] };
   }
 
@@ -113,6 +124,11 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
   }
 
   const sheet = openSheet({ title: food ? `Edit ${kindLabel}` : `New ${kindLabel}` });
+  const barcodeInput = h('input', {
+    class: 'input', type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'none',
+    'aria-label': 'Barcode', value: draft.barcode,
+    onInput: () => { draft.barcode = barcodeInput.value; },
+  });
   sheet.el.classList.add('sheet-tall');
   const error = h('div', { class: 'form-error', role: 'alert' });
   const form = h('div', { class: 'form' });
@@ -265,7 +281,9 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
   function render() {
     error.textContent = '';
     fill(form,
+      initial?.sourceNote ? h('div', { class: 'notice notice-info' }, icon('alert', 16), initial.sourceNote) : null,
       field('Name', nameInput),
+      k === 'ingredient' ? field('Barcode', barcodeInput, 'Optional. Scanning this barcode later finds this ingredient') : null,
       composable
         ? segmented([{ value: 'components', label: `Build from ${partKinds.length > 1 ? 'foods' : 'ingredients'}` }, { value: 'direct', label: 'Type the values' }], draft.source,
           (v) => {

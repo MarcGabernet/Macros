@@ -17,6 +17,11 @@ home screen. No build step, no dependencies: plain HTML, CSS and JavaScript.
   dish or meal.
 - **Day**: macros on top (progress rings once a target is set), then
   minerals and vitamins, a "Current weight" weigh-in and what you ate.
+- **Scan products**: the camera button in the middle scans a product's
+  barcode and looks it up in [Open Food Facts](https://world.openfoodfacts.org)
+  (free, open data; only the barcode is sent). A new ingredient opens filled in
+  per 100 g, to check and save. Saved ingredients remember their barcode, so
+  scanning it again finds yours. The barcode can also be typed.
 - **Calendar**: week or month, with daily, weekly and monthly totals and
   graphs of weight, calories and each macro.
 - **Nutrients**: a fixed list in `js/core/nutrients.js` (EU label order, with
@@ -100,6 +105,8 @@ js/core/store.js             reading and saving the data on this device
 js/core/merge.js             merging two copies of the data
 js/core/dates.js, format.js  days, and turning numbers into text
 js/sync/google.js            Google sign-in and Drive calls
+js/sync/foodfacts.js         product lookup by barcode (Open Food Facts)
+js/vendor/zxing.min.js       ZXing barcode reader (Apache 2.0), for phones without a built-in one
 js/sync/engine.js            when to upload, download and merge
 js/ui/                       the screens (views/) and shared pieces
 sw.js, manifest.webmanifest  offline use and the home-screen app

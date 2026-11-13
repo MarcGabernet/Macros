@@ -34,30 +34,32 @@ const ug = (x) => x / 1e6;
  *            fibre from EFSA, which the EU label has none for). Not editable.
  * refPerKg:  reference per kg of body weight, used instead of `ref` once a weight is known
  *            (protein: EFSA population reference intake, 0.83 g/kg)
+ * off:       its field in Open Food Facts ("<off>_100g"), used to fill in scanned products.
+ *            Open Food Facts gives weights in grams, so they map straight onto the base unit
  *
  * Order follows the EU nutrition label, so typing values off a label goes top to bottom.
  * Note: in the EU fibre is NOT part of carbohydrate; it is listed on its own.
  */
 export const CATALOG = [
-  { id: 'kcal', group: 'macro', name: 'Calories', short: 'kcal', dimension: 'energy', unit: 'kcal', units: ['kcal', 'kJ'], color: 'orange', line: 1, ref: 2000 },
-  { id: 'fat', group: 'macro', name: 'Fat', short: 'F', dimension: 'mass', unit: 'g', units: ['g'], color: 'magenta', line: 4, ref: 70 },
-  { id: 'saturates', group: 'macro', name: 'Saturates', short: 'Sat', dimension: 'mass', unit: 'g', units: ['g'], parent: 'fat', ref: 20 },
-  { id: 'monounsaturates', group: 'macro', name: 'Monounsaturates', brief: 'Monounsat.', short: 'Mono', dimension: 'mass', unit: 'g', units: ['g'], parent: 'fat' },
-  { id: 'polyunsaturates', group: 'macro', name: 'Polyunsaturates', brief: 'Polyunsat.', short: 'Poly', dimension: 'mass', unit: 'g', units: ['g'], parent: 'fat' },
-  { id: 'carbs', group: 'macro', name: 'Carbohydrate', short: 'C', dimension: 'mass', unit: 'g', units: ['g'], color: 'yellow', line: 3, ref: 260 },
-  { id: 'sugars', group: 'macro', name: 'Sugars', short: 'Sug', dimension: 'mass', unit: 'g', units: ['g'], parent: 'carbs', ref: 90 },
-  { id: 'fibre', group: 'macro', name: 'Fibre', short: 'Fib', dimension: 'mass', unit: 'g', units: ['g'], color: 'green', ref: 25 },
-  { id: 'protein', group: 'macro', name: 'Protein', short: 'P', dimension: 'mass', unit: 'g', units: ['g'], color: 'blue', line: 2, ref: 50, refPerKg: 0.83 },
+  { id: 'kcal', off: 'energy-kcal', group: 'macro', name: 'Calories', short: 'kcal', dimension: 'energy', unit: 'kcal', units: ['kcal', 'kJ'], color: 'orange', line: 1, ref: 2000 },
+  { id: 'fat', off: 'fat', group: 'macro', name: 'Fat', short: 'F', dimension: 'mass', unit: 'g', units: ['g'], color: 'magenta', line: 4, ref: 70 },
+  { id: 'saturates', off: 'saturated-fat', group: 'macro', name: 'Saturates', short: 'Sat', dimension: 'mass', unit: 'g', units: ['g'], parent: 'fat', ref: 20 },
+  { id: 'monounsaturates', off: 'monounsaturated-fat', group: 'macro', name: 'Monounsaturates', brief: 'Monounsat.', short: 'Mono', dimension: 'mass', unit: 'g', units: ['g'], parent: 'fat' },
+  { id: 'polyunsaturates', off: 'polyunsaturated-fat', group: 'macro', name: 'Polyunsaturates', brief: 'Polyunsat.', short: 'Poly', dimension: 'mass', unit: 'g', units: ['g'], parent: 'fat' },
+  { id: 'carbs', off: 'carbohydrates', group: 'macro', name: 'Carbohydrate', short: 'C', dimension: 'mass', unit: 'g', units: ['g'], color: 'yellow', line: 3, ref: 260 },
+  { id: 'sugars', off: 'sugars', group: 'macro', name: 'Sugars', short: 'Sug', dimension: 'mass', unit: 'g', units: ['g'], parent: 'carbs', ref: 90 },
+  { id: 'fibre', off: 'fiber', group: 'macro', name: 'Fibre', short: 'Fib', dimension: 'mass', unit: 'g', units: ['g'], color: 'green', ref: 25 },
+  { id: 'protein', off: 'proteins', group: 'macro', name: 'Protein', short: 'P', dimension: 'mass', unit: 'g', units: ['g'], color: 'blue', line: 2, ref: 50, refPerKg: 0.83 },
 
-  { id: 'salt', group: 'mineral', name: 'Salt', short: 'Salt', dimension: 'mass', unit: 'g', units: ['g', 'mg'], color: 'violet', ref: 6 },
-  { id: 'potassium', group: 'mineral', name: 'Potassium', short: 'K', dimension: 'mass', unit: 'mg', units: ['mg', 'g'], color: 'aqua', ref: mg(2000) },
-  { id: 'calcium', group: 'mineral', name: 'Calcium', short: 'Ca', dimension: 'mass', unit: 'mg', units: ['mg', 'g'], color: 'blue', ref: mg(800) },
-  { id: 'iron', group: 'mineral', name: 'Iron', short: 'Fe', dimension: 'mass', unit: 'mg', units: ['mg', 'µg'], color: 'red', ref: mg(14) },
-  { id: 'magnesium', group: 'mineral', name: 'Magnesium', short: 'Mg', dimension: 'mass', unit: 'mg', units: ['mg', 'g'], color: 'green', ref: mg(375) },
+  { id: 'salt', off: 'salt', group: 'mineral', name: 'Salt', short: 'Salt', dimension: 'mass', unit: 'g', units: ['g', 'mg'], color: 'violet', ref: 6 },
+  { id: 'potassium', off: 'potassium', group: 'mineral', name: 'Potassium', short: 'K', dimension: 'mass', unit: 'mg', units: ['mg', 'g'], color: 'aqua', ref: mg(2000) },
+  { id: 'calcium', off: 'calcium', group: 'mineral', name: 'Calcium', short: 'Ca', dimension: 'mass', unit: 'mg', units: ['mg', 'g'], color: 'blue', ref: mg(800) },
+  { id: 'iron', off: 'iron', group: 'mineral', name: 'Iron', short: 'Fe', dimension: 'mass', unit: 'mg', units: ['mg', 'µg'], color: 'red', ref: mg(14) },
+  { id: 'magnesium', off: 'magnesium', group: 'mineral', name: 'Magnesium', short: 'Mg', dimension: 'mass', unit: 'mg', units: ['mg', 'g'], color: 'green', ref: mg(375) },
 
-  { id: 'vitaminC', group: 'vitamin', name: 'Vitamin C', short: 'C', dimension: 'mass', unit: 'mg', units: ['mg'], color: 'yellow', ref: mg(80) },
-  { id: 'vitaminD', group: 'vitamin', name: 'Vitamin D', short: 'D', dimension: 'mass', unit: 'µg', units: ['µg'], color: 'orange', ref: ug(5) },
-  { id: 'vitaminB12', group: 'vitamin', name: 'Vitamin B12', short: 'B12', dimension: 'mass', unit: 'µg', units: ['µg'], color: 'violet', ref: ug(2.5) },
+  { id: 'vitaminC', off: 'vitamin-c', group: 'vitamin', name: 'Vitamin C', short: 'C', dimension: 'mass', unit: 'mg', units: ['mg'], color: 'yellow', ref: mg(80) },
+  { id: 'vitaminD', off: 'vitamin-d', group: 'vitamin', name: 'Vitamin D', short: 'D', dimension: 'mass', unit: 'µg', units: ['µg'], color: 'orange', ref: ug(5) },
+  { id: 'vitaminB12', off: 'vitamin-b12', group: 'vitamin', name: 'Vitamin B12', short: 'B12', dimension: 'mass', unit: 'µg', units: ['µg'], color: 'violet', ref: ug(2.5) },
 ];
 
 const BY_ID = Object.fromEntries(CATALOG.map((n) => [n.id, n]));
