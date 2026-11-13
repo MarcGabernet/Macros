@@ -1,6 +1,12 @@
 // The shape of the data. Everything the app tracks is described here as data,
 // so adding a new nutrient, kind of food or way of measuring is a table edit.
 
+// RULE: saved data must keep working in every future version.
+// - Never rename or reuse a stored key (nutrient ids, collections, settings, fields).
+// - Only add fields, and give them a default for data that doesn't have them.
+// - Stored units never change (kcal, grams, kg); only how they're shown does.
+// - If the shape really has to change, bump SCHEMA_VERSION and convert old data
+//   in normalizeDb() below.
 export const SCHEMA_VERSION = 1;
 
 // Collections of records keyed by id. Every record carries `updatedAt`, and a
@@ -35,7 +41,7 @@ export const canBeComposite = (kind) => allowedComponentKinds(kind).length > 0;
 export const AMOUNT_TYPES = ['grams', 'units', 'percent'];
 
 export const DEFAULT_SETTINGS = {
-  weekStart: 1,           // 1 = Monday, 0 = Sunday
+  weekStart: 1,           // no longer used: weeks always start on Monday (kept so older data still reads)
   weightUnit: 'kg',       // 'kg' | 'lb'
   weightMode: 'weighins', // 'weighins' (logged on the Day screen) | 'manual' (typed in Settings)
   weightKg: null,         // the weight typed in Settings, in kg

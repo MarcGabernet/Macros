@@ -36,7 +36,7 @@ function chartsSection(db, nutrients, days, byDate) {
     const goalBase = n.target > 0 ? n.target : n.reference;
     cards.push(barChart({
       title: n.name, color: n.color, days, values, unit: n.unit,
-      goal: goalBase ? { value: toDisplay(n, goalBase), label: n.target > 0 ? 'Target' : 'Ref' } : null,
+      goal: goalBase ? { value: toDisplay(n, goalBase), label: n.target > 0 ? (n.goalType === 'limit' ? 'Limit' : 'Target') : 'Ref' } : null,
       stat: stats.logged ? `avg ${withUnit(n, stats.average[n.id] || 0)}` : null,
     }));
   }
@@ -60,7 +60,7 @@ function totalsTable(stats, nutrients, title) {
 }
 
 function weekView({ ui, go }, db, nutrients, byDate) {
-  const days = weekDays(ui.calDate, db.settings.weekStart);
+  const days = weekDays(ui.calDate, 1);
   const stats = rangeTotals(days, byDate, db.foods);
   const main = nutrients[0];
   const t = today();
@@ -94,7 +94,7 @@ function weekView({ ui, go }, db, nutrients, byDate) {
 }
 
 function monthView({ ui, go }, db, nutrients, byDate) {
-  const ws = db.settings.weekStart;
+  const ws = 1; // weeks start on Monday
   const weeks = monthWeeks(ui.calDate, ws);
   const days = monthDays(ui.calDate);
   const stats = rangeTotals(days, byDate, db.foods);

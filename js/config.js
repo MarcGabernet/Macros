@@ -9,4 +9,5 @@ export const GOOGLE_CLIENT_ID = '989027319635-5cmbkqf4qe5kupg7clh8t3vkn8dlvuca.a
 // The name of the data file in Drive's hidden app-data folder.
 export const DRIVE_FILE_NAME = 'macros.json';
 
-export const APP_VERSION = '1.2.0';
+// Shown at the bottom of Settings.
+export const APP_VERSION = '0.0.0';

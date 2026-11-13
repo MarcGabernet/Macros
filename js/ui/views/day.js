@@ -9,7 +9,7 @@ import { amountLabel, num, parseNum, inputStr } from '../../core/format.js';
 import { GROUPS } from '../../core/nutrients.js';
 import { weighIns, weighInOn, toWeightUnit, fromWeightUnit } from '../../core/weight.js';
 import {
-  activeNutrients, summaryCard, nutrientListCard, macroLine, emptyState, openFoodPicker, openAmountSheet, numberField,
+  activeNutrients, summaryCard, goalsStrip, nutrientListCard, macroLine, emptyState, openFoodPicker, openAmountSheet, numberField,
 } from '../components.js';
 
 /**
@@ -86,7 +86,7 @@ export function renderDay({ ui, go }) {
   const totals = sumValues(entries.map((e) => entryValues(e, db.foods)));
   const t = today();
 
-  const strip = h('div', { class: 'week-strip' }, weekDays(ui.date, db.settings.weekStart).map((d) => h('button', {
+  const strip = h('div', { class: 'week-strip' }, weekDays(ui.date, 1).map((d) => h('button', {
     type: 'button', class: `strip-day${d === ui.date ? ' on' : ''}${d === t ? ' is-today' : ''}`,
     'aria-label': fmt(d, { weekday: 'long', day: 'numeric', month: 'long' }), 'aria-current': d === ui.date ? 'date' : null,
     onClick: () => go({ date: d }),
@@ -121,6 +121,7 @@ export function renderDay({ ui, go }) {
         h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Previous day', onClick: () => go({ date: addDays(ui.date, -1) }) }, icon('left')),
         h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Next day', onClick: () => go({ date: addDays(ui.date, 1) }) }, icon('right')))),
     strip,
+    goalsStrip(totals, nutrients, { isToday: ui.date === t }),
     summaryCard(totals, nutrients),
     // Minerals and vitamins, each in its own section under the macros.
     GROUPS.filter((g) => g.id !== 'macro').map((g) => {

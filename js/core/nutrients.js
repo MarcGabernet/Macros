@@ -71,6 +71,14 @@ export const fromDisplay = (n, shown) => shown / factor(n);
 
 export const isEnergy = (n) => n.dimension === 'energy';
 
+export const isLimit = (n) => n.goalType === 'limit';
+
+/** Whether a day's amount meets the nutrient's goal: at least a target, at most a limit. */
+export function goalMet(n, value) {
+  if (!(n.target > 0)) return null;
+  return isLimit(n) ? value <= n.target : value >= n.target;
+}
+
 /** The daily reference for this nutrient (base unit), or null when there is none. */
 export function referenceFor(def, weightKg) {
   if (def.refPerKg && weightKg > 0) return def.refPerKg * weightKg;
@@ -79,9 +87,10 @@ export function referenceFor(def, weightKg) {
 
 /**
  * Every nutrient with this device's settings applied, in display order:
- * unit, daily target, `enabled` (false also when its parent is disabled),
+ * unit, daily goal (`target` amount and `goalType`: 'target' = reach at least,
+ * 'limit' = stay at or under), `enabled` (false also when its parent is disabled),
  * `depth` (0, or 1 for "of which ..."), colour and daily reference.
- * `prefs` is the synced `nutrients` collection: { id: { unit, target, enabled } }.
+ * `prefs` is the synced `nutrients` collection: { id: { unit, target, goalType, enabled } }.
  */
 export function resolveNutrients(prefs = {}, { weightKg = null } = {}) {
   return CATALOG.map((def) => {
@@ -92,7 +101,8 @@ export function resolveNutrients(prefs = {}, { weightKg = null } = {}) {
     return {
       ...def,
       unit: def.units.includes(pref.unit) ? pref.unit : def.unit,
-      target: Number(pref.target) > 0 ? Number(pref.target) : null, // stored in base unit
+      target: Number(pref.target) > 0 ? Number(pref.target) : null, // the goal amount, stored in base unit
+      goalType: pref.goalType === 'limit' ? 'limit' : 'target',     // older data has no goalType: a target
       selfEnabled: selfOn,
       enabled: selfOn && parentOn,
       depth: parent ? 1 : 0,

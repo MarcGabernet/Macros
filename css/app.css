@@ -34,8 +34,10 @@
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Dark colours: used when the device is in dark mode (unless the app is set to Light
+   in Settings > View), or always when the app is set to Dark. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
     --bg: #11100e;
     --surface: #1c1b18;
@@ -60,6 +62,32 @@
     --c-violet: #9085e9;
     --c-red: #e66767;
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #11100e;
+  --surface: #1c1b18;
+  --surface-2: #272521;
+  --ink: #f2efe9;
+  --ink-2: #c6c2b7;
+  --muted: #96928a;
+  --line: #2e2c27;
+  --line-strong: #403d37;
+  --btn: #f2efe9;
+  --btn-ink: #14130f;
+  --danger: #ef6b66;
+  --focus: #5c9df0;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+
+  --c-orange: #d95926;
+  --c-blue: #3987e5;
+  --c-yellow: #c98500;
+  --c-magenta: #d55181;
+  --c-aqua: #199e70;
+  --c-green: #008300;
+  --c-violet: #9085e9;
+  --c-red: #e66767;
 }
 
 * { box-sizing: border-box; }
@@ -145,7 +173,13 @@ button:disabled { cursor: default; opacity: .45; }
 .tile-value { font-size: 22px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
 .tile-unit { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
 .tile-note { font-size: 12px; color: var(--muted); }
-.tile-sub { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 5px; line-height: 1.25; }
+.tile-sub { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 6px; line-height: 1.25; }
+.tile-sub-head { display: flex; justify-content: space-between; gap: 6px; }
+.tile-sub .meter { height: 4px; border-radius: 2px; }
+.tile-sub .meter-fill { border-radius: 2px; }
+.tile-sub .meter { background: color-mix(in srgb, var(--c) 22%, var(--surface-2)); }
+.tile-sub .meter-soft { background: color-mix(in srgb, var(--c) 12%, var(--surface-2)); }
+.tile-sub-goal { font-weight: 500; color: var(--muted); }
 .tile-sub:first-of-type { margin-top: 2px; }
 .tile-sub-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tile-sub-name::before { content: "↳ "; opacity: .6; }
@@ -632,3 +666,34 @@ table.totals { width: 100%; border-collapse: collapse; font-variant-numeric: tab
 .row-switch { padding: 0 14px 0 4px; display: flex; align-items: center; }
 .weight-readout { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
 .card.pad.form { align-items: stretch; gap: 16px; }
+
+.tile-sub-head { flex-wrap: wrap; row-gap: 1px; }
+.tile-sub-head .tile-sub-name { overflow: visible; white-space: nowrap; }
+.tile-sub-head .tile-sub-value { margin-left: auto; }
+
+/* --------------------------------------------------------------- goals & limits */
+
+.ring.over-limit, .meter.over-limit { --c: var(--danger) !important; }
+.hero-note.warn, .tile-note.warn { color: var(--danger); font-weight: 600; }
+
+.goals-strip { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
+.goals-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.goals-title { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.goals-count { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.goals-count.all { color: var(--c-green); }
+.goals-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.goal-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 3px 9px 3px 4px; border-radius: 12px; background: var(--surface-2); color: var(--muted); }
+.goal-chip .goal-mark { width: 16px; height: 16px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; line-height: 1; background: color-mix(in srgb, var(--c) 18%, var(--surface)); color: var(--c); }
+.goal-chip.ok { color: var(--ink); }
+.goal-chip.ok .goal-mark { background: var(--c); color: #fff; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.goal-chip { color: var(--ink-2); }
+.goal-chip:not(.ok) .goal-mark { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line-strong); color: var(--muted); }
+
+/* ------------------------------------------------------------ settings menu */
+
+.menu-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--surface-2); color: var(--ink-2); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.chevron { color: var(--muted); display: inline-flex; flex: none; }
+.sub-head { align-items: flex-end; }
+.back-link { display: inline-flex; align-items: center; gap: 2px; border: 0; background: none; padding: 4px 6px 4px 0; margin-bottom: 4px; color: var(--focus); font-size: 15px; font-weight: 600; }

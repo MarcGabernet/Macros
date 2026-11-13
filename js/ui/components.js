@@ -3,7 +3,7 @@
 import { h, icon, openSheet, add } from './dom.js';
 import { store } from '../core/store.js';
 import { KINDS, KIND_ORDER, showsReferences } from '../core/schema.js';
-import { resolveNutrients, isEnergy } from '../core/nutrients.js';
+import { resolveNutrients, isEnergy, isLimit, goalMet } from '../core/nutrients.js';
 import { currentWeightKg } from '../core/weight.js';
 import {
   perUnit, valuesFor, allowedAmountTypes, defaultAmount, convertAmount, foodIssues, isComposite,
@@ -65,8 +65,9 @@ export function svg(tag, attrs = {}, ...children) {
 }
 
 /**
- * A progress ring (like an activity ring): fills clockwise towards the target.
- * Past 100% a darker second lap starts over the first, so "over" stays visible.
+ * A progress ring (like an activity ring): fills clockwise towards the goal.
+ * Past 100% a darker second lap starts over the first, so "over" stays visible;
+ * for a limit, going over turns the ring the warning colour.
  */
 export function ring(value, target, nutrient, { size = 56, stroke = 7, center = null } = {}) {
   const ratio = target > 0 ? Math.max(0, value / target) : 0;
@@ -82,21 +83,66 @@ export function ring(value, target, nutrient, { size = 56, stroke = 7, center = 
     svg('circle', { class: 'ring-track', cx: mid, cy: mid, r, fill: 'none', 'stroke-width': stroke }),
     ratio > 0 ? arc(Math.min(ratio, 1), 'ring-fill') : null,
     ratio > 1 ? arc(ratio - 1, 'ring-over') : null);
+  const overLimit = isLimit(nutrient) && ratio > 1;
   return h('div', {
-    class: 'ring', role: 'img', style: { '--c': colorVar(nutrient), width: `${size}px`, height: `${size}px` },
-    'aria-label': `${withUnit(nutrient, value)} of ${withUnit(nutrient, target)} (${Math.round(ratio * 100)}%)`,
+    class: `ring${overLimit ? ' over-limit' : ''}`, role: 'img', style: { '--c': colorVar(nutrient), width: `${size}px`, height: `${size}px` },
+    'aria-label': `${withUnit(nutrient, value)} of ${isLimit(nutrient) ? 'a limit of ' : ''}${withUnit(nutrient, target)} (${Math.round(ratio * 100)}%)`,
   }, g, center ? h('div', { class: 'ring-center' }, center) : null);
 }
 
-/** "Ref 70 g": the fixed daily reference, shown next to targets. */
+/** "Ref 70 g": the fixed daily reference, shown next to goals. */
 export const refText = (n, days = 1) => (n.reference ? `Ref ${withUnit(n, n.reference * days)}` : null);
+
+/** "of 140 g" for a target, "limit 6 g" for a limit. */
+const goalText = (n) => (isLimit(n) ? `limit ${withUnit(n, n.target)}` : `of ${withUnit(n, n.target)}`);
+
+/** How far from the goal: "30 g to go" / "Target reached", or "2 g left" / "1 g over limit". */
+function goalNote(n, value) {
+  const diff = n.target - value;
+  if (isLimit(n)) return diff >= 0 ? `${withUnit(n, diff)} left` : `${withUnit(n, -diff)} over limit`;
+  return diff > 0 ? `${withUnit(n, diff)} to go` : 'Target reached';
+}
+
+/** A bar towards the goal, or (lighter) towards the reference when there is no goal. */
+function goalMeter(n, value) {
+  const t = n.target > 0 ? n.target : null;
+  const goal = t ?? n.reference;
+  if (!goal) return null;
+  const bar = meter(value, goal, n, { soft: t == null });
+  if (t != null && isLimit(n) && value > t) bar.classList.add('over-limit');
+  return bar;
+}
 
 // Two tiles per row (room for the "of which" lines); three or fewer fit on one row.
 const tileColumns = (count, hasSubs) => (count <= 3 && !hasSubs ? count : 2);
 
 /**
- * The macros card: energy as the headline (a big ring once it has a target),
- * then a tile per other macro (a small ring once it has a target), with its
+ * "Goals today · 3 of 5 met": a compact card over the macros with every goal
+ * set (targets reached, limits not exceeded), each as a small chip.
+ */
+export function goalsStrip(values, nutrients, { isToday = true } = {}) {
+  const goals = nutrients.filter((n) => n.target > 0);
+  if (!goals.length) return null;
+  const met = goals.filter((n) => goalMet(n, values[n.id] || 0));
+  return h('section', { class: 'card goals-strip', 'aria-label': 'Goals' },
+    h('div', { class: 'goals-head' },
+      h('span', { class: 'goals-title' }, isToday ? 'Goals today' : 'Goals this day'),
+      h('span', { class: `goals-count${met.length === goals.length ? ' all' : ''}` }, `${met.length} of ${goals.length} met`)),
+    h('div', { class: 'goals-chips' }, goals.map((n) => {
+      const ok = met.includes(n);
+      return h('span', {
+        class: `goal-chip${ok ? ' ok' : ''}`, style: { '--c': colorVar(n) },
+        title: `${n.name}: ${isLimit(n) ? 'limit' : 'target'} ${withUnit(n, n.target)}`,
+      },
+      h('span', { class: 'goal-mark', 'aria-hidden': 'true' }, ok ? '✓' : '·'),
+      n.depth ? n.brief || n.name : n.name,
+      h('span', { class: 'sr-only' }, ok ? ' met' : ' not met'));
+    })));
+}
+
+/**
+ * The macros card: calories as the headline (a big ring once it has a goal),
+ * then a tile per other macro (a small ring once it has a goal), with its
  * "of which" lines. Only the 'macro' group; minerals and vitamins have their own cards.
  */
 export function summaryCard(values, nutrients, { caption } = {}) {
@@ -104,22 +150,20 @@ export function summaryCard(values, nutrients, { caption } = {}) {
   const main = macros.find((n) => !n.depth);
   if (!main) return null;
   const rest = macros.filter((n) => !n.depth && n !== main);
-  const target = main.target > 0 ? main.target : null;
   const value = values[main.id] || 0;
-  const left = target != null ? target - value : null;
   const ref = refText(main);
   const label = h('div', { class: 'hero-label' }, dot(main), main.name, caption ? h('span', { class: 'hero-caption' }, ` · ${caption}`) : null);
 
-  const hero = target != null
+  const hero = main.target > 0
     ? h('div', { class: 'hero hero-ring' },
-      ring(value, target, main, {
+      ring(value, main.target, main, {
         size: 132, stroke: 13,
         center: [h('span', { class: 'ring-value' }, nutrientNum(main, value)), h('span', { class: 'ring-unit' }, main.unit)],
       }),
       h('div', { class: 'hero-side' },
         label,
-        h('div', { class: 'hero-goal' }, `of ${withUnit(main, target)}`),
-        h('div', { class: 'hero-note' }, left >= 0 ? `${withUnit(main, left)} left` : `${withUnit(main, -left)} over`),
+        h('div', { class: 'hero-goal' }, goalText(main)),
+        h('div', { class: `hero-note${isLimit(main) && value > main.target ? ' warn' : ''}` }, goalNote(main, value)),
         ref ? h('div', { class: 'hero-ref' }, ref) : null))
     : h('div', { class: 'hero' },
       label,
@@ -142,28 +186,33 @@ export function summaryCard(values, nutrients, { caption } = {}) {
           t != null ? ring(v, t, n, { size: 46, stroke: 6 }) : null,
           h('div', { class: 'tile-figures' },
             h('div', { class: 'tile-value' }, nutrientNum(n, v), h('span', { class: 'tile-unit' }, ` ${n.unit}`)),
-            t != null ? h('div', { class: 'tile-note' }, `of ${withUnit(n, t)}`) : null,
+            t != null ? h('div', { class: `tile-note${isLimit(n) && v > t ? ' warn' : ''}` }, goalText(n)) : null,
             r ? h('div', { class: 'tile-note' }, r) : null)),
-        childrenOf(n, macros).map((c) => h('div', { class: 'tile-sub' },
-          h('span', { class: 'tile-sub-name' }, c.brief || c.name),
-          h('span', { class: 'tile-sub-value' }, withUnit(c, values[c.id] || 0)))));
+        childrenOf(n, macros).map((c) => {
+          const cv = values[c.id] || 0;
+          const ct = c.target > 0 ? c.target : null;
+          return h('div', { class: 'tile-sub' },
+            h('div', { class: 'tile-sub-head' },
+              h('span', { class: 'tile-sub-name' }, c.brief || c.name),
+              h('span', { class: 'tile-sub-value' }, withUnit(c, cv), ct != null ? h('span', { class: 'tile-sub-goal' }, ` / ${isLimit(c) ? 'max ' : ''}${withUnit(c, ct)}`) : null)),
+            goalMeter(c, cv));
+        }));
     })) : null);
 }
 
 /**
  * A card for one group (minerals, vitamins): each with its amount, and a bar
- * towards its target, or towards its reference (lighter) when it has no target.
+ * towards its goal, or towards its reference (lighter) when it has no goal.
  */
 export function nutrientListCard(values, nutrients) {
   return h('div', { class: 'card micro-list' }, nutrients.map((n) => {
     const v = values[n.id] || 0;
     const t = n.target > 0 ? n.target : null;
-    const goal = t ?? n.reference;
     return h('div', { class: 'micro-row' },
       h('div', { class: 'micro-head' },
         h('span', { class: 'micro-name' }, dot(n), n.name),
-        h('span', { class: 'micro-value' }, withUnit(n, v), t != null ? h('span', { class: 'micro-goal' }, ` / ${withUnit(n, t)}`) : null)),
-      goal ? meter(v, goal, n, { soft: t == null }) : null,
+        h('span', { class: 'micro-value' }, withUnit(n, v), t != null ? h('span', { class: 'micro-goal' }, ` / ${isLimit(n) ? 'max ' : ''}${withUnit(n, t)}`) : null)),
+      goalMeter(n, v),
       n.reference ? h('div', { class: 'micro-ref' }, `${refText(n)} · ${Math.round((v / n.reference) * 100)}% of it`) : null);
   }));
 }

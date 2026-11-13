@@ -17,6 +17,13 @@
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="stylesheet" href="css/app.css">
+  <script>
+    // Light/dark chosen in Settings > View, applied before the page draws (see js/ui/theme.js).
+    var t = null;
+    try { t = localStorage.getItem('macros.theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.dataset.theme = t;
+  </script>
 </head>
 <body>
   <div id="app"></div>

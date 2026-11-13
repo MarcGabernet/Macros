@@ -1,9 +1,9 @@
-// Settings: which nutrients you track (and their units and targets), body
-// weight, the week, and Google Drive.
+// Settings: a menu of pages. Data (nutrients, goals, body weight),
+// Account (Google Drive) and View (theme, daily references).
 
-import { h, icon, openSheet, confirmSheet, add } from '../dom.js';
+import { h, icon, openSheet, confirmSheet, add, fill } from '../dom.js';
 import { store } from '../../core/store.js';
-import { SCHEMA_VERSION, showsReferences } from '../../core/schema.js';
+import { showsReferences } from '../../core/schema.js';
 import { GROUPS, toDisplay, fromDisplay, isEnergy } from '../../core/nutrients.js';
 import { WEIGHT_UNITS, toWeightUnit, fromWeightUnit, currentWeightKg, weighIns } from '../../core/weight.js';
 import { parseNum, inputStr, withUnit, num } from '../../core/format.js';
@@ -12,6 +12,7 @@ import { allNutrients, segmented, numberField, field, dot, refText } from '../co
 import { sync } from '../../sync/engine.js';
 import { redirectUri } from '../../sync/google.js';
 import { APP_VERSION } from '../../config.js';
+import { THEMES, getTheme, setTheme } from '../theme.js';
 
 /** An on/off switch. */
 function toggle(on, onChange, { label, disabled = false } = {}) {
@@ -24,9 +25,14 @@ function toggle(on, onChange, { label, disabled = false } = {}) {
 
 const setNutrient = (id, patch) => store.put('nutrients', { ...(store.get('nutrients', id) || {}), id, ...patch });
 
-/** Change how a nutrient is shown (unit) and its daily target. The list itself is fixed in code. */
+/** Change how a nutrient is shown (unit) and its daily goal (a target or a limit). The list itself is fixed in code. */
 function openNutrientEditor(nutrient) {
-  const draft = { unit: nutrient.unit, target: nutrient.target ? inputStr(toDisplay(nutrient, nutrient.target), 4) : '' };
+  const draft = {
+    unit: nutrient.unit,
+    targetOn: nutrient.target > 0,
+    goalType: nutrient.goalType,
+    target: nutrient.target ? inputStr(toDisplay(nutrient, nutrient.target), 4) : '',
+  };
   const sheet = openSheet({ title: nutrient.depth ? `Of which ${nutrient.name.toLowerCase()}` : nutrient.name });
   const error = h('div', { class: 'form-error', role: 'alert' });
   const shown = () => ({ ...nutrient, unit: draft.unit });
@@ -38,7 +44,7 @@ function openNutrientEditor(nutrient) {
   };
 
   const targetBox = numberField({
-    value: draft.target, placeholder: 'none', suffix: draft.unit, label: 'Daily target',
+    value: draft.target, placeholder: nutrient.reference ? inputStr(toDisplay(nutrient, nutrient.reference), 1) : '0', suffix: draft.unit, label: 'Daily target',
     onInput: (t) => { draft.target = t; },
   });
 
@@ -56,19 +62,53 @@ function openNutrientEditor(nutrient) {
   }
 
   function save() {
-    const typed = draft.target.trim() ? parseNum(draft.target) : null;
-    if (draft.target.trim() && !(typed > 0)) { error.textContent = 'The target must be a number above zero, or empty'; return; }
-    setNutrient(nutrient.id, { unit: draft.unit, target: typed == null ? null : fromDisplay(shown(), typed) });
+    let target = null;
+    if (draft.targetOn) {
+      const typed = parseNum(draft.target);
+      const word = draft.goalType === 'limit' ? 'limit' : 'target';
+      if (!(typed > 0)) { error.textContent = draft.target.trim() ? `The ${word} must be a number above zero` : `Enter a ${word}, or switch the goal off`; return; }
+      target = fromDisplay(shown(), typed);
+    }
+    setNutrient(nutrient.id, { unit: draft.unit, target, goalType: draft.goalType });
     sheet.close();
   }
 
+  // The goal is optional: a switch turns it on (showing the choice and the box) or off.
+  // A target is an amount to reach, a limit one not to go over.
+  const ringOrBar = nutrient.group === 'macro' && !nutrient.depth ? 'a progress ring' : 'a progress bar';
+  const targetArea = h('div', { class: 'field' });
+  const paintTarget = () => {
+    error.textContent = '';
+    fill(targetArea,
+      h('div', { class: 'switch-line' },
+        h('div', {},
+          h('div', { class: 'switch-text' }, 'Daily goal'),
+          h('div', { class: 'switch-sub' }, `With a goal you get ${ringOrBar} on each day`)),
+        toggle(draft.targetOn, (on) => {
+          draft.targetOn = on;
+          paintTarget();
+          if (on) targetBox.input.focus();
+        }, { label: 'Daily goal' })),
+      draft.targetOn
+        ? [
+          segmented([{ value: 'target', label: 'Target' }, { value: 'limit', label: 'Limit' }], draft.goalType,
+            (v) => { draft.goalType = v; paintTarget(); }, { label: 'Kind of goal' }),
+          targetBox.el,
+          h('div', { class: 'field-hint' }, draft.goalType === 'limit'
+            ? 'A limit is met while you stay at or under it'
+            : 'A target is met once you reach it'),
+        ]
+        : null);
+  };
+
   paintRef();
+  paintTarget();
   add(sheet.body, h('div', { class: 'form' },
     nutrient.units.length > 1
       ? field('Show in', segmented(nutrient.units.map((u) => ({ value: u, label: u })), draft.unit, changeUnit, { label: 'Unit' }),
         isEnergy(nutrient) ? '1 kcal = 4.184 kJ. Everything already logged converts' : 'Everything already logged converts')
       : null,
-    field('Daily target', targetBox.el, 'Optional. With a target you get a progress ring on each day'),
+    targetArea,
     showsReferences(store.db.settings) ? field('Daily reference', refLine) : null));
   sheet.foot.append(error, h('button', { class: 'btn btn-primary btn-block', type: 'button', onClick: save }, 'Save'));
 }
@@ -82,7 +122,8 @@ function nutrientsSection(db) {
       h('div', { class: 'section-head' }, h('h2', {}, g.label)),
       h('div', { class: 'card list' }, list.map((n) => {
         const parentOff = Boolean(n.depth && !n.enabled && n.selfEnabled);
-        const side = [n.target > 0 ? `Target ${withUnit(n, n.target)}` : 'No target', refText(n)].filter(Boolean).join(' · ');
+        const goal = n.target > 0 ? `${n.goalType === 'limit' ? 'Limit' : 'Target'} ${withUnit(n, n.target)}` : 'No goal';
+        const side = [goal, refText(n)].filter(Boolean).join(' · ');
         return h('div', { class: `row-wrap${n.depth ? ' sub-row' : ''}${n.enabled ? '' : ' off'}` },
           h('button', { class: 'row', type: 'button', onClick: () => openNutrientEditor(n) },
             h('div', { class: 'row-main' },
@@ -136,7 +177,7 @@ function weightSection(db) {
     h('div', { class: 'section-head' }, h('h2', {}, 'Body weight')),
     h('div', { class: 'card pad form' },
       h('div', { class: 'switch-line' },
-        h('div', {}, h('div', { class: 'switch-text' }, 'Daily weigh-ins'), h('div', { class: 'switch-sub' }, 'Log your weight on the Day screen')),
+        h('div', {}, h('div', { class: 'switch-text' }, 'Daily weigh-ins'), h('div', { class: 'switch-sub' }, 'Log your weight on the Day screen. For comparable numbers, weigh yourself at the same time of day each time, ideally in the morning before eating')),
         toggle(mode === 'weighins', (on) => {
           // Switching to manual starts from your latest weigh-in, so nothing jumps.
           store.setSettings(on ? { weightMode: 'weighins' } : { weightMode: 'manual', weightKg: db.settings.weightKg || kg || null });
@@ -199,19 +240,48 @@ function syncCard() {
       }, 'Disconnect')));
 }
 
-export function renderSettings() {
+function themeSection() {
+  return h('section', {},
+    h('div', { class: 'section-head' }, h('h2', {}, 'Theme')),
+    segmented(THEMES, getTheme(), (t) => setTheme(t), { label: 'Theme' }),
+    h('p', { class: 'section-note' }, 'Saved on this device only'));
+}
+
+// Settings is a menu of pages; each page holds its own options.
+const PAGES = [
+  {
+    id: 'data', title: 'Data', icon: 'foods',
+    render: (db) => [nutrientsSection(db), weightSection(db)],
+  },
+  {
+    id: 'account', title: 'Account', icon: 'cloud',
+    render: () => [h('section', {}, h('div', { class: 'section-head' }, h('h2', {}, 'Google Drive')), syncCard())],
+  },
+  {
+    id: 'view', title: 'View', icon: 'eye',
+    render: (db) => [themeSection(), referencesSection(db)],
+  },
+];
+
+export function renderSettings({ ui, go }) {
   const db = store.db;
+  const page = PAGES.find((p) => p.id === ui.settingsPage);
+
+  if (page) {
+    return h('div', { class: 'view' },
+      h('header', { class: 'view-head sub-head' },
+        h('div', {},
+          h('button', { class: 'back-link', type: 'button', onClick: () => go({ settingsPage: null }) }, icon('left', 18), 'Settings'),
+          h('h1', {}, page.title))),
+      page.render(db));
+  }
+
   return h('div', { class: 'view' },
     h('header', { class: 'view-head' }, h('div', {}, h('h1', {}, 'Settings'))),
-    nutrientsSection(db),
-    referencesSection(db),
-    weightSection(db),
-    h('section', {},
-      h('div', { class: 'section-head' }, h('h2', {}, 'Week starts on')),
-      segmented([{ value: '1', label: 'Monday' }, { value: '0', label: 'Sunday' }], String(db.settings.weekStart),
-        (v) => store.setSettings({ weekStart: Number(v) }), { label: 'Week starts on' })),
-    h('section', {},
-      h('div', { class: 'section-head' }, h('h2', {}, 'Google Drive')),
-      syncCard()),
-    h('p', { class: 'footnote' }, `Macros ${APP_VERSION} · data format ${SCHEMA_VERSION}`));
+    h('div', { class: 'card list' }, PAGES.map((p) => h('div', { class: 'row-wrap' },
+      h('button', { class: 'row', type: 'button', onClick: () => go({ settingsPage: p.id }) },
+        h('span', { class: 'menu-icon' }, icon(p.icon, 20)),
+        h('div', { class: 'row-main' }, h('div', { class: 'row-title' }, p.title)),
+        h('span', { class: 'chevron' }, icon('right', 18)))))),
+    h('p', { class: 'footnote' }, `Macros ${APP_VERSION}`));
 }
