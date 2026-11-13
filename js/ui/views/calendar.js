@@ -6,9 +6,42 @@ import { entriesByDate, rangeTotals } from '../../core/calc.js';
 import {
   today, addDays, addMonths, weekDays, monthDays, monthWeeks, sameMonth, fmt, fmtRange,
 } from '../../core/dates.js';
-import { nutrientNum, withUnit } from '../../core/format.js';
+import { nutrientNum, withUnit, num } from '../../core/format.js';
 import { activeNutrients, segmented, macroLine, dot } from '../components.js';
+import { toDisplay } from '../../core/nutrients.js';
+import { weighInOn, toWeightUnit } from '../../core/weight.js';
+import { barChart, lineChart } from '../charts.js';
 import { logFood } from './day.js';
+
+/**
+ * Graphs for the period: body weight (with daily weigh-ins), then energy and
+ * each macro per day, with a dashed line at its target (or its reference).
+ */
+function chartsSection(db, nutrients, days, byDate) {
+  const stats = rangeTotals(days, byDate, db.foods);
+  const cards = [];
+  if ((db.settings.weightMode || 'weighins') === 'weighins') {
+    const unit = db.settings.weightUnit || 'kg';
+    const values = days.map((d) => { const w = weighInOn(db, d); return w ? toWeightUnit(w.kg, unit) : null; });
+    const logged = values.filter((v) => v > 0);
+    const change = logged.length > 1 ? logged[logged.length - 1] - logged[0] : null;
+    cards.push(lineChart({
+      title: 'Weight', color: 'blue', days, values, unit,
+      stat: change == null ? null : `${change > 0 ? '+' : change < 0 ? '−' : '±'}${num(Math.abs(change), 1)} ${unit}`,
+      empty: 'No weigh-ins in this period',
+    }));
+  }
+  for (const n of nutrients.filter((x) => x.group === 'macro' && !x.depth)) {
+    const values = days.map((d) => { const day = stats.perDay.get(d); return day.count ? toDisplay(n, day.values[n.id] || 0) : null; });
+    const goalBase = n.target > 0 ? n.target : n.reference;
+    cards.push(barChart({
+      title: n.name, color: n.color, days, values, unit: n.unit,
+      goal: goalBase ? { value: toDisplay(n, goalBase), label: n.target > 0 ? 'Target' : 'Ref' } : null,
+      stat: stats.logged ? `avg ${withUnit(n, stats.average[n.id] || 0)}` : null,
+    }));
+  }
+  return h('section', {}, h('div', { class: 'section-head' }, h('h2', {}, 'Graphs')), cards);
+}
 
 /** Total and daily average of every nutrient over a period. */
 function totalsTable(stats, nutrients, title) {
@@ -23,7 +56,7 @@ function totalsTable(stats, nutrients, title) {
           h('th', { scope: 'row' }, n.depth ? `of which ${n.name.toLowerCase()}` : [dot(n), n.name]),
           h('td', {}, withUnit(n, stats.total[n.id] || 0)),
           h('td', {}, stats.logged ? withUnit(n, stats.average[n.id] || 0) : '–'))))),
-      stats.logged ? h('div', { class: 'table-note' }, 'The average counts only the days with something logged.') : null));
+      stats.logged ? h('div', { class: 'table-note' }, 'The average counts only the days with something logged') : null));
 }
 
 function weekView({ ui, go }, db, nutrients, byDate) {
@@ -56,7 +89,7 @@ function weekView({ ui, go }, db, nutrients, byDate) {
   return {
     title: fmtRange(days[0], days[6]),
     isCurrent: days.includes(t),
-    body: [h('div', { class: 'card list' }, rows), totalsTable(stats, nutrients, 'Week total')],
+    body: [h('div', { class: 'card list' }, rows), chartsSection(db, nutrients, days, byDate), totalsTable(stats, nutrients, 'Week total')],
   };
 }
 
@@ -103,7 +136,8 @@ function monthView({ ui, go }, db, nutrients, byDate) {
     isCurrent: sameMonth(ui.calDate, t),
     body: [
       h('div', { class: 'card month-card' }, grid,
-        main ? h('div', { class: 'table-note' }, `Each day shows its ${main.name.toLowerCase()} (${main.unit}). Tap a day to open it.`) : null),
+        main ? h('div', { class: 'table-note' }, `Each day shows its ${main.name.toLowerCase()} (${main.unit}). Tap a day to open it`) : null),
+      chartsSection(db, nutrients, days, byDate),
       totalsTable(stats, nutrients, 'Month total'),
       h('section', {},
         h('div', { class: 'section-head' }, h('h2', {}, 'Week by week'), h('span', { class: 'muted' }, 'Full weeks')),

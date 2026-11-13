@@ -5,8 +5,48 @@ import { store } from '../../core/store.js';
 import { KINDS } from '../../core/schema.js';
 import { entriesByDate, entryValues, sumValues } from '../../core/calc.js';
 import { today, addDays, weekDays, fmt } from '../../core/dates.js';
-import { amountLabel } from '../../core/format.js';
-import { activeNutrients, summaryCard, macroLine, emptyState, openFoodPicker, openAmountSheet } from '../components.js';
+import { amountLabel, num, parseNum, inputStr } from '../../core/format.js';
+import { GROUPS } from '../../core/nutrients.js';
+import { weighIns, weighInOn, toWeightUnit, fromWeightUnit } from '../../core/weight.js';
+import {
+  activeNutrients, summaryCard, nutrientListCard, macroLine, emptyState, openFoodPicker, openAmountSheet, numberField,
+} from '../components.js';
+
+/**
+ * "Current weight" for a day (only when weigh-ins are on in Settings).
+ * Today or earlier only: a weigh-in can't be logged for the future.
+ */
+function weightCard(db, date) {
+  const unit = db.settings.weightUnit || 'kg';
+  const own = weighInOn(db, date);
+  const earlier = weighIns(db).filter((w) => w.date < date).pop();
+  const box = numberField({
+    value: own ? inputStr(toWeightUnit(own.kg, unit), 1) : '',
+    placeholder: earlier ? inputStr(toWeightUnit(earlier.kg, unit), 1) : '0',
+    suffix: unit, label: 'Weight',
+  });
+  const save = () => {
+    const text = box.input.value.trim();
+    if (!text) {
+      if (own) { store.remove('weights', date); toast('Weigh-in removed'); }
+      return;
+    }
+    const value = parseNum(text);
+    if (!(value > 0) || value > 1000) { toast('That weight isn’t valid'); box.input.value = own ? inputStr(toWeightUnit(own.kg, unit), 1) : ''; return; }
+    const kg = Number(fromWeightUnit(value, unit).toFixed(3));
+    if (own && Math.abs(own.kg - kg) < 0.0005) return;
+    store.put('weights', { id: date, date, kg });
+    toast('Weight saved');
+  };
+  box.input.addEventListener('change', save);
+  box.input.addEventListener('keydown', (e) => { if (e.key === 'Enter') box.input.blur(); });
+  const sub = own
+    ? 'Logged for this day'
+    : earlier ? `Last: ${num(toWeightUnit(earlier.kg, unit), 1)} ${unit} on ${fmt(earlier.date, { day: 'numeric', month: 'short' })}` : 'Weighed yourself? Add it here';
+  return h('div', { class: 'card weight-card' },
+    h('div', { class: 'weight-text' }, h('div', { class: 'weight-title' }, 'Current weight'), h('div', { class: 'weight-sub' }, sub)),
+    box.el);
+}
 
 /** Pick a food and an amount, then log it on `date`. */
 export function logFood(date) {
@@ -40,7 +80,7 @@ function relativeName(date) {
 
 export function renderDay({ ui, go }) {
   const db = store.db;
-  const nutrients = activeNutrients(db);
+  const nutrients = activeNutrients(db, ui.date);
   const byDate = entriesByDate(db);
   const entries = byDate.get(ui.date) || [];
   const totals = sumValues(entries.map((e) => entryValues(e, db.foods)));
@@ -82,12 +122,20 @@ export function renderDay({ ui, go }) {
         h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Next day', onClick: () => go({ date: addDays(ui.date, 1) }) }, icon('right')))),
     strip,
     summaryCard(totals, nutrients),
+    // Minerals and vitamins, each in its own section under the macros.
+    GROUPS.filter((g) => g.id !== 'macro').map((g) => {
+      const list = nutrients.filter((n) => n.group === g.id);
+      return list.length ? h('section', {},
+        h('div', { class: 'section-head' }, h('h2', {}, g.label)),
+        nutrientListCard(totals, list)) : null;
+    }),
+    (db.settings.weightMode || 'weighins') === 'weighins' && ui.date <= t ? weightCard(db, ui.date) : null,
     h('section', {},
       h('div', { class: 'section-head' },
         h('h2', {}, 'Eaten'),
         entries.length ? h('span', { class: 'muted' }, `${entries.length} item${entries.length > 1 ? 's' : ''}`) : null),
       entries.length
         ? h('div', { class: 'card list' }, rows)
-        : h('div', { class: 'card' }, emptyState('Nothing logged yet', 'Add what you ate and the totals appear above.',
+        : h('div', { class: 'card' }, emptyState('Nothing logged yet', 'Add what you ate and the totals appear above',
           h('button', { class: 'btn btn-primary', type: 'button', onClick: () => logFood(ui.date) }, icon('plus', 16), 'Add food')))));
 }

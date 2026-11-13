@@ -116,9 +116,9 @@ export function foodIssues(food, foods) {
   const allowed = KINDS[food.kind]?.components ?? [];
   for (const c of food.components || []) {
     const part = foods[c.foodId];
-    if (!part) issues.push('A part of this food no longer exists.');
+    if (!part) issues.push('A part of this food no longer exists');
     else if (!allowed.includes(part.kind)) issues.push(`${part.name} can't be part of a ${food.kind}.`);
-    else if (amountFactor(part, c.amount, foods) == null) issues.push(`${part.name} needs a weight to be measured in grams.`);
+    else if (amountFactor(part, c.amount, foods) == null) issues.push(`${part.name} needs a weight to be measured in grams`);
   }
   return issues;
 }

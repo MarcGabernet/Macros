@@ -15,9 +15,14 @@ home screen. No build step, no dependencies: plain HTML, CSS and JavaScript.
   percentage of the unit when the unit has a weight.
 - **Logging**: add what you ate in grams, in units, or as a percentage of a
   dish or meal.
-- **Calendar**: every day's totals, plus weekly and monthly totals and averages.
-- **Nutrients are data**: Calories, Protein, Carbs and Fat to start with. Add
-  more (fibre, sugar, salt...) in Settings, each with an optional daily target.
+- **Day**: macros on top (progress rings once a target is set), then
+  minerals and vitamins, a "Current weight" weigh-in and what you ate.
+- **Calendar**: week or month, with daily, weekly and monthly totals and
+  graphs of weight, energy and each macro.
+- **Nutrients**: a fixed list in `js/core/nutrients.js` (EU label order, with
+  "of which" sub-nutrients). In Settings each can be switched off (hidden, values
+  kept), given a daily target, and where it makes sense shown in another unit.
+  Each shows its EU daily reference; protein's follows your body weight.
 
 ## Try it on this computer
 
@@ -39,8 +44,8 @@ it is opened with a connection. It also opens offline.
 
 ## Where the data lives
 
-On the device, in the browser's storage for the app. **Settings > Backup**
-exports everything to a file and restores it.
+On the device, in the browser's storage for the app, and in Google Drive
+once connected (below).
 
 ## Google Drive sync
 
@@ -48,7 +53,8 @@ The data is one file (`macros.json`) in Drive's hidden app-data folder: the
 app sees only its own files there, and nothing shows up among your normal
 Drive files. Changes upload a few seconds after you make them, and when two
 devices have both changed, their records are merged (the newest copy of each
-wins).
+wins). The first time a device that already has data connects to a Drive that
+also has data, the app asks which of the two to keep.
 
 It needs a one-time setup in its own Google Cloud project:
 
@@ -101,9 +107,9 @@ sw.js, manifest.webmanifest  offline use and the home-screen app
 
 To add something new:
 
-- **A nutrient**: no code needed, use Settings.
+- **A nutrient**: one line in `CATALOG` in `js/core/nutrients.js`.
 - **A kind of food** (say, a "day plan" made of meals): one entry in `KINDS`
   in `js/core/schema.js`, listing what it may contain.
 - **A new field on foods or log entries**: records are plain objects, so add
-  the field where it is edited and shown; saving, backup and sync carry it
+  the field where it is edited and shown; saving and sync carry it
   along unchanged.

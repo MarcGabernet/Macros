@@ -3,9 +3,13 @@
 // The data is one small file, so it travels whole. When Drive's copy has
 // changed since this device last saw it, the two are merged record by record
 // (see core/merge.js) instead of asking which one to keep.
+//
+// The one exception is the first sync after connecting a device that already
+// has its own data to a Drive that already has some: then you choose which to keep.
 
 import { store } from '../core/store.js';
 import { mergeDbs } from '../core/merge.js';
+import { COLLECTIONS, normalizeDb } from '../core/schema.js';
 import { isConfigured, beginSignIn, consumeRedirect, drive, AuthError, OfflineError } from './google.js';
 
 const META_KEY = 'macros.sync'; // this device's sync state; never uploaded
@@ -16,8 +20,9 @@ function loadMeta() {
   try { return JSON.parse(localStorage.getItem(META_KEY) || '{}') || {}; } catch { return {}; }
 }
 
-let meta = loadMeta(); // { enabled, email, token, expiresAt, remoteMd5, lastSync, dirty, silentFailed }
-let state = 'idle';    // 'idle' | 'syncing' | 'needs-auth' | 'offline' | 'error'
+let meta = loadMeta(); // { enabled, email, token, expiresAt, remoteMd5, lastSync, dirty, silentFailed, firstSync }
+let state = 'idle';    // 'idle' | 'syncing' | 'choose' | 'needs-auth' | 'offline' | 'error'
+let pendingChoice = null; // while state is 'choose': { remote, theirs }
 let message = '';
 let running = false;
 let again = false;
@@ -43,13 +48,49 @@ function schedule(delay = SAVE_DELAY) {
   timer = setTimeout(() => sync.syncNow(), delay);
 }
 
+const live = (db, c) => Object.values(db[c] || {}).filter((r) => !r.deleted).length;
+
+/** Whether a copy of the data holds anything you made (not just a fresh install). */
+function hasContent(db) {
+  return ['foods', 'entries', 'weights'].some((c) => live(db, c) > 0)
+    || Object.keys(db.nutrients || {}).length > 0 || (db.settings?.updatedAt || 0) > 0;
+}
+
+/** "4 foods · 12 logged items · 3 weigh-ins" */
+function describe(db) {
+  const n = (c, one, many) => { const k = live(db, c); return `${k} ${k === 1 ? one : many}`; };
+  return [n('foods', 'food', 'foods'), n('entries', 'logged item', 'logged items'), n('weights', 'weigh-in', 'weigh-ins')].join(' · ');
+}
+
+class NeedsChoice extends Error {}
+
+/** The first sync after connecting: take Drive's data, or ask when both sides have some. */
+async function firstSync(token, remote) {
+  const theirs = normalizeDb(JSON.parse(await drive.download(token, remote.id)));
+  const merged = mergeDbs(store.db, theirs);
+  if (!hasContent(store.db) || (!merged.localChanged && !merged.remoteChanged)) {
+    store.replace(theirs, { local: false });
+    saveMeta({ remoteMd5: remote.md5Checksum, firstSync: false, dirty: false });
+    return;
+  }
+  if (!hasContent(theirs)) {
+    const uploaded = await drive.upload(token, store.serialize(), remote.id);
+    saveMeta({ remoteMd5: uploaded.md5Checksum, firstSync: false, dirty: false });
+    return;
+  }
+  pendingChoice = { remote, theirs };
+  throw new NeedsChoice();
+}
+
 async function run() {
   const startedAt = localChanges;
   const token = meta.token;
   const remote = await drive.find(token);
   let uploaded = null;
 
-  if (!remote) {
+  if (meta.firstSync && remote) {
+    await firstSync(token, remote);
+  } else if (!remote) {
     uploaded = await drive.upload(token, store.serialize(), null);
   } else if (remote.md5Checksum !== meta.remoteMd5) {
     const theirs = JSON.parse(await drive.download(token, remote.id));
@@ -62,6 +103,7 @@ async function run() {
   }
 
   if (uploaded) saveMeta({ remoteMd5: uploaded.md5Checksum });
+  if (meta.firstSync) saveMeta({ firstSync: false });
   // Anything changed while this was running still has to go up.
   const changedMeanwhile = localChanges !== startedAt;
   saveMeta({ dirty: changedMeanwhile, lastSync: Date.now() });
@@ -73,11 +115,13 @@ export const sync = {
   init() {
     const back = consumeRedirect();
     if (back?.token) {
-      saveMeta({ enabled: true, token: back.token, expiresAt: back.expiresAt, silentFailed: false });
+      // A device connecting for the first time (not just renewing its sign-in)
+      // checks what Drive already has before merging anything.
+      saveMeta({ enabled: true, token: back.token, expiresAt: back.expiresAt, silentFailed: false, firstSync: !meta.enabled });
     } else if (back?.error) {
       saveMeta({ silentFailed: true, token: null, expiresAt: 0 });
-      if (back.error === 'drive_not_granted') message = 'Google Drive access was not allowed. Connect again and tick the Drive box on Google’s screen.';
-      else if (!back.silent) message = 'Google sign-in was not completed.';
+      if (back.error === 'drive_not_granted') message = 'Google Drive access was not allowed. Connect again and tick the Drive box on Google’s screen';
+      else if (!back.silent) message = 'Google sign-in was not completed';
     }
 
     store.subscribe(({ local }) => {
@@ -115,6 +159,7 @@ export const sync = {
     return {
       configured: isConfigured(), enabled: !!meta.enabled, email: meta.email || '',
       state, message, lastSync: meta.lastSync || null, pending: !!meta.dirty,
+      choice: pendingChoice ? { drive: describe(pendingChoice.theirs), local: describe(store.db) } : null,
     };
   },
 
@@ -128,16 +173,52 @@ export const sync = {
     beginSignIn({ hint: meta.email || undefined });
   },
 
+  /**
+   * Settle the first sync: 'drive' replaces this device's data with Drive's;
+   * 'local' replaces Drive's with this device's (what only Drive had is
+   * marked deleted, so other devices drop it too instead of bringing it back).
+   */
+  async choose(which) {
+    if (!pendingChoice || running) return;
+    const { remote, theirs } = pendingChoice;
+    running = true;
+    setState('syncing');
+    try {
+      if (which === 'drive') {
+        store.replace(theirs, { local: false });
+        saveMeta({ remoteMd5: remote.md5Checksum, firstSync: false, dirty: false, lastSync: Date.now() });
+      } else {
+        const now = Date.now();
+        const db = normalizeDb(JSON.parse(store.serialize()));
+        for (const c of COLLECTIONS) {
+          for (const id of Object.keys(theirs[c])) if (!db[c][id]) db[c][id] = { id, deleted: true, updatedAt: now };
+          for (const rec of Object.values(db[c])) rec.updatedAt = Math.max(rec.updatedAt || 0, now);
+        }
+        db.settings.updatedAt = now;
+        store.replace(db, { local: false });
+        const uploaded = await drive.upload(meta.token, store.serialize(), remote.id);
+        saveMeta({ remoteMd5: uploaded.md5Checksum, firstSync: false, dirty: false, lastSync: Date.now() });
+      }
+      pendingChoice = null;
+      setState('idle');
+    } catch (err) {
+      setState(err instanceof OfflineError ? 'offline' : 'choose', err.message);
+    } finally {
+      running = false;
+    }
+  },
+
   /** Stop syncing on this device. The Drive copy and the local data both stay. */
   disconnect() {
     clearTimeout(timer);
+    pendingChoice = null;
     meta = {};
     localStorage.removeItem(META_KEY);
     setState('idle');
   },
 
   async syncNow() {
-    if (!isConfigured() || !meta.enabled) return;
+    if (!isConfigured() || !meta.enabled || pendingChoice) return;
     if (running) { again = true; return; }
     if (!hasToken()) { setState('needs-auth'); return; }
     running = true;
@@ -146,9 +227,10 @@ export const sync = {
       await run();
       setState('idle');
     } catch (err) {
-      if (err instanceof AuthError) { saveMeta({ token: null, expiresAt: 0 }); setState('needs-auth', err.message); }
+      if (err instanceof NeedsChoice) setState('choose');
+      else if (err instanceof AuthError) { saveMeta({ token: null, expiresAt: 0 }); setState('needs-auth', err.message); }
       else if (err instanceof OfflineError) setState('offline', err.message);
-      else { console.error('Sync failed', err); setState('error', err.message || 'Sync failed.'); }
+      else { console.error('Sync failed', err); setState('error', err.message || 'Sync failed'); }
     } finally {
       running = false;
       if (again) { again = false; schedule(500); }

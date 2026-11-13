@@ -54,10 +54,15 @@ function renderTabs() {
 
 function renderBanner() {
   const s = sync.status();
-  bannerEl.replaceChildren(s.configured && s.enabled && s.state === 'needs-auth'
-    ? h('button', { class: 'banner', type: 'button', onClick: () => sync.connect() },
-      icon('cloud', 18), h('span', {}, 'Drive sync is paused.'), h('strong', {}, 'Reconnect'))
-    : '');
+  let banner = '';
+  if (s.configured && s.enabled && s.state === 'needs-auth') {
+    banner = h('button', { class: 'banner', type: 'button', onClick: () => sync.connect() },
+      icon('cloud', 18), h('span', {}, 'Drive sync is paused'), h('strong', {}, 'Reconnect'));
+  } else if (s.state === 'choose' && ui.tab !== 'settings') {
+    banner = h('button', { class: 'banner', type: 'button', onClick: () => go({ tab: 'settings' }) },
+      icon('alert', 18), h('span', {}, 'Drive and this device both have data'), h('strong', {}, 'Choose'));
+  }
+  bannerEl.replaceChildren(banner);
 }
 
 function render() {

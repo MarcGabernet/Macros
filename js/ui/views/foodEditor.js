@@ -10,7 +10,7 @@ import {
   perUnit, unitGrams, valuesFor, scale, canBePercent, toPercent, fromPercent, foodIssues,
 } from '../../core/calc.js';
 import { parseNum, inputStr, num, amountLabel, withUnit } from '../../core/format.js';
-import { CATALOG, toDisplay, fromDisplay, isEnergy } from '../../core/nutrients.js';
+import { GROUPS, toDisplay, fromDisplay, isEnergy } from '../../core/nutrients.js';
 import {
   activeNutrients, segmented, numberField, field, macroLine, dot, openFoodPicker, openAmountSheet,
 } from '../components.js';
@@ -82,31 +82,31 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
     const unit = draft.unitType === 'mass'
       ? { type: 'mass', grams: parseNum(draft.massGrams) }
       : { type: 'piece', name: draft.pieceName.trim(), grams: directGrams() };
-    // Keep values of nutrients this version of the app doesn't know (from a newer
-    // or older version), so they aren't lost; a cleared box removes its value.
-    const known = new Set(CATALOG.map((n) => n.id));
-    const kept = Object.fromEntries(Object.entries(food?.source === 'direct' ? food.values || {} : {}).filter(([id]) => !known.has(id)));
+    // Keep the values of nutrients that aren't shown here (switched off in Settings,
+    // or unknown to this version of the app) so they aren't lost; a cleared box removes its value.
+    const shown = new Set(nutrients.map((n) => n.id));
+    const kept = Object.fromEntries(Object.entries(food?.source === 'direct' ? food.values || {} : {}).filter(([id]) => !shown.has(id)));
     return { ...base, unit, values: { ...kept, ...typedValues() }, inputMode: draft.mode, components: [] };
   }
 
   function validate() {
-    if (!draft.name.trim()) return 'Give it a name.';
+    if (!draft.name.trim()) return 'Give it a name';
     if (draft.source === 'components') {
-      if (!draft.components.length) return `Add at least one ${listKinds(partKinds)}.`;
+      if (!draft.components.length) return `Add at least one ${listKinds(partKinds)}`;
       return null;
     }
-    if (draft.unitType === 'mass' && !(parseNum(draft.massGrams) > 0)) return 'Enter the weight the values are for.';
-    if (draft.mode === 'percent' && !directGrams()) return 'Percentages need the weight of one unit.';
+    if (draft.unitType === 'mass' && !(parseNum(draft.massGrams) > 0)) return 'Enter the weight the values are for';
+    if (draft.mode === 'percent' && !directGrams()) return 'Percentages need the weight of one unit';
     for (const n of nutrients) {
       const text = draft.inputs[n.id].trim();
-      if (text && (parseNum(text) == null || parseNum(text) < 0)) return `${n.name} isn't a valid number.`;
+      if (text && (parseNum(text) == null || parseNum(text) < 0)) return `${n.name} isn't a valid number`;
     }
     // "Of which" can't be more than the whole (labels round, hence the small margin).
     const values = typedValues();
     for (const n of nutrients.filter((x) => x.parent)) {
       const parent = nutrients.find((p) => p.id === n.parent);
       if ((values[n.id] ?? 0) > (values[parent.id] ?? 0) + 0.05) {
-        return `${n.name} (${withUnit(n, values[n.id])}) can't be more than ${parent.name.toLowerCase()} (${withUnit(parent, values[parent.id] ?? 0)}).`;
+        return `${n.name} (${withUnit(n, values[n.id])}) can't be more than ${parent.name.toLowerCase()} (${withUnit(parent, values[parent.id] ?? 0)})`;
       }
     }
     return null;
@@ -148,7 +148,7 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
         ? field('Values below are for', weightBox.el)
         : [
           field('What one piece is called', nameBox),
-          field('Weight of one piece', pieceWeightBox.el, 'Optional. With a weight you can also log it in grams and type values as %.'),
+          field('Weight of one piece', pieceWeightBox.el, 'Optional. With a weight you can also log it in grams and type values as %'),
         ]);
   }
 
@@ -185,11 +185,11 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
         : `Nutrition in one ${draft.pieceName.trim() || 'piece'}`;
       percentBtn.disabled = !grams && draft.mode !== 'percent';
       hint.textContent = draft.mode === 'percent'
-        ? (grams ? `Percent of the unit's ${num(grams, 1)} g. Energy stays as an amount.` : 'Set the weight of one unit to use percentages.')
-        : (!grams ? 'Give the unit a weight to type values as percentages.' : '');
+        ? (grams ? `Percent of the unit's ${num(grams, 1)} g. Energy stays as an amount` : 'Set the weight of one unit to use percentages')
+        : (!grams ? 'Give the unit a weight to type values as percentages' : '');
     };
 
-    const rows = nutrients.map((n) => {
+    const row = (n) => {
       const box = numberField({
         value: draft.inputs[n.id], suffix: usesPercent(n) ? '%' : n.unit, label: n.name,
         onInput: (t) => { draft.inputs[n.id] = t; },
@@ -197,6 +197,12 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
       return n.depth
         ? h('div', { class: 'value-row sub' }, h('div', { class: 'value-name' }, `of which ${n.name.toLowerCase()}`), box.el)
         : h('div', { class: 'value-row' }, h('div', { class: 'value-name' }, dot(n), n.name), box.el);
+    };
+    // Grouped like the Day screen: macros, then minerals, then vitamins.
+    const rows = GROUPS.map((g) => {
+      const list = nutrients.filter((n) => n.group === g.id);
+      if (!list.length) return null;
+      return [g.id === 'macro' ? null : h('div', { class: 'value-group' }, g.label), list.map(row)];
     });
     const section = h('section', { class: 'form-section' },
       h('div', { class: 'section-head' }, heading, modeSeg), rows, hint);
@@ -236,7 +242,7 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
     return [
       h('section', { class: 'form-section' },
         h('h3', {}, 'Made of'),
-        rows.length ? h('div', { class: 'list list-inset' }, rows) : h('div', { class: 'field-hint' }, `A ${kindLabel} needs at least one ${listKinds(partKinds)}.`),
+        rows.length ? h('div', { class: 'list list-inset' }, rows) : h('div', { class: 'field-hint' }, `A ${kindLabel} needs at least one ${listKinds(partKinds)}`),
         h('button', {
           class: 'btn btn-block', type: 'button',
           onClick: () => openFoodPicker({
@@ -252,7 +258,7 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
         h('h3', {}, `The whole ${kindLabel}`),
         h('div', { class: 'totals-box' }, macroLine(totals, nutrients)),
         grams ? h('div', { class: 'totals-box totals-sub' }, h('span', { class: 'muted' }, 'Per 100 g'), macroLine(scale(totals, 100 / grams), nutrients)) : null,
-        field('Total weight', weightBox.el, 'Optional: the finished weight if it differs from the sum of its parts (e.g. after cooking).')),
+        field('Total weight', weightBox.el, 'Optional: the finished weight if it differs from the sum of its parts (e.g. after cooking)')),
     ];
   }
 
@@ -275,10 +281,10 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
 
   async function remove() {
     const usedIn = store.all('foods').filter((f) => f.components?.some((c) => c.foodId === food.id));
-    const note = usedIn.length ? ` It is part of ${usedIn.length} other food${usedIn.length > 1 ? 's' : ''}, which keep counting it.` : '';
+    const note = usedIn.length ? `. It is part of ${usedIn.length} other food${usedIn.length > 1 ? 's' : ''}, which keep counting it` : '';
     const ok = await confirmSheet({
       title: `Delete ${food.name}?`,
-      message: `It disappears from your foods. Days already logged with it keep their numbers.${note}`,
+      message: `It disappears from your foods. Days already logged with it keep their numbers${note}`,
     });
     if (!ok) return;
     store.remove('foods', food.id);

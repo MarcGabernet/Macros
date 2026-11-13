@@ -74,13 +74,13 @@ async function call(token, method, url, { params, headers, body } = {}) {
   try {
     res = await fetch(full, { method, headers: { Authorization: `Bearer ${token}`, ...headers }, body });
   } catch (err) {
-    throw new OfflineError('No connection to Google Drive.');
+    throw new OfflineError('No connection to Google Drive');
   }
-  if (res.status === 401) throw new AuthError('Your Google session has expired.');
+  if (res.status === 401) throw new AuthError('Your Google session has expired');
   if (res.status === 403 && /insufficient/i.test(await res.clone().text())) {
-    throw new AuthError('Macros was not allowed to use Google Drive. Reconnect and tick the Drive box.');
+    throw new AuthError('Macros was not allowed to use Google Drive. Reconnect and tick the Drive box');
   }
-  if (!res.ok) throw new SyncError(`Google Drive responded with an error (${res.status}).`);
+  if (!res.ok) throw new SyncError(`Google Drive responded with an error (${res.status})`);
   return res;
 }
 

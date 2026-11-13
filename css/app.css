@@ -552,3 +552,83 @@ table.totals { width: 100%; border-collapse: collapse; font-variant-numeric: tab
 
 .sub-row .row { padding-left: 34px; min-height: 52px; }
 .sub-row .row-title { font-weight: 500; color: var(--ink-2); }
+
+/* ---------------------------------------------------------- rings & references */
+
+.ring { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.ring svg { position: absolute; inset: 0; }
+.ring-track { stroke: color-mix(in srgb, var(--c) 20%, var(--surface)); }
+.tile .ring-track { stroke: color-mix(in srgb, var(--c) 22%, var(--surface-2)); }
+.ring-fill { stroke: var(--c); transition: stroke-dasharray .4s ease; }
+.ring-over { stroke: color-mix(in srgb, var(--c) 60%, #000); }
+.ring-center { position: relative; display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.ring-value { font-size: 30px; font-weight: 750; letter-spacing: -.03em; }
+.ring-unit { font-size: 13px; color: var(--muted); margin-top: 3px; }
+
+.hero-ring { flex-direction: row; align-items: center; gap: 18px; }
+.hero-side { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.hero-goal { font-size: 18px; font-weight: 650; }
+.hero-ref, .micro-ref { font-size: 12px; color: var(--muted); }
+
+.tile-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.tile-figures { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.meter-soft { background: color-mix(in srgb, var(--c) 12%, var(--surface)); }
+.meter-soft .meter-fill { background: color-mix(in srgb, var(--c) 55%, var(--surface)); }
+
+.group-title { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+.micro-list { padding: 4px 0; }
+.micro-row { padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
+.micro-row + .micro-row { border-top: 1px solid var(--line); }
+.micro-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.micro-name { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.micro-value { font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.micro-goal { font-weight: 500; color: var(--muted); font-size: 13px; }
+
+/* ----------------------------------------------------------------- weight card */
+
+.weight-card { padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+.weight-card .weight-text { flex: 1; min-width: 0; }
+.weight-card .weight-title { font-weight: 650; }
+.weight-card .weight-sub { font-size: 13px; color: var(--muted); }
+.weight-card .input-wrap { width: 132px; flex: none; }
+
+/* ------------------------------------------------------------------ switches */
+
+.switch { position: relative; width: 50px; height: 30px; flex: none; border: 0; padding: 0; border-radius: 15px; background: var(--line-strong); transition: background .2s ease; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s ease; }
+.switch[aria-checked="true"] { background: var(--c-green); }
+.switch[aria-checked="true"]::after { transform: translateX(20px); }
+.switch:disabled { opacity: .35; }
+.row-wrap.off .row-title, .row-wrap.off .row-sub, .row-wrap.off .row-side { opacity: .45; }
+.switch-line { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+.switch-line .switch-text { font-weight: 600; }
+.switch-line .switch-sub { font-size: 13px; color: var(--muted); font-weight: 400; }
+
+/* -------------------------------------------------------------------- charts */
+
+.chart-card { padding: 14px 16px 10px; display: flex; flex-direction: column; gap: 8px; position: relative; }
+.chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.chart-title { display: flex; align-items: center; gap: 8px; font-weight: 650; }
+.chart-stat { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .axis-text { fill: var(--muted); font-size: 10px; font-family: var(--font); }
+.chart .goal-line { stroke: var(--ink-2); stroke-width: 1.25; stroke-dasharray: 4 4; opacity: .7; }
+.chart .bar { fill: var(--c); }
+.chart .bar.hot { fill: color-mix(in srgb, var(--c) 70%, var(--ink)); }
+.chart .line { fill: none; stroke: var(--c); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .point { fill: var(--c); stroke: var(--surface); stroke-width: 2; }
+.chart .point.hot { r: 5; }
+.chart .hit { fill: transparent; cursor: pointer; }
+.chart-tip { position: absolute; pointer-events: none; background: var(--btn); color: var(--btn-ink); font-size: 12px; font-weight: 600; padding: 5px 8px; border-radius: 8px; white-space: nowrap; transform: translate(-50%, -100%); opacity: 0; transition: opacity .1s ease; z-index: 2; }
+.chart-tip.show { opacity: 1; }
+.chart-empty { font-size: 13px; color: var(--muted); padding: 18px 0 12px; text-align: center; }
+.chart-key { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.chart-key .dash { width: 16px; border-top: 1.5px dashed var(--ink-2); opacity: .7; }
+
+.value-group { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; padding-top: 8px; }
+
+.row-switch { padding: 0 14px 0 4px; display: flex; align-items: center; }
+.weight-readout { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+.card.pad.form { align-items: stretch; gap: 16px; }

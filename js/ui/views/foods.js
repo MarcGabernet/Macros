@@ -20,7 +20,7 @@ export function renderFoods({ ui, go }) {
     list.replaceChildren(foods.length
       ? h('div', { class: 'card list' }, foods.map((f) => foodRow(f, db, nutrients, { onClick: () => openFoodEditor({ food: f }) })))
       : h('div', { class: 'card' }, all.length
-        ? emptyState('Nothing matches', 'Try another name.')
+        ? emptyState('Nothing matches', 'Try another name')
         : emptyState(`No ${kind.plural.toLowerCase()} yet`, kind.hint,
           h('button', { class: 'btn btn-primary', type: 'button', onClick: create }, icon('plus', 16), `New ${label}`))));
   }
