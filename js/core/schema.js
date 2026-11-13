@@ -39,7 +39,7 @@ export const DEFAULT_SETTINGS = {
   weightUnit: 'kg',       // 'kg' | 'lb'
   weightMode: 'weighins', // 'weighins' (logged on the Day screen) | 'manual' (typed in Settings)
   weightKg: null,         // the weight typed in Settings, in kg
-  hideReferences: false,  // hide the daily intake references everywhere
+  showReferences: true,   // show the daily intake references ("Ref") everywhere
   updatedAt: 0,
 };
 
@@ -48,6 +48,9 @@ export function emptyDb() {
   // the nutrients themselves are defined in nutrients.js.
   return { schema: SCHEMA_VERSION, nutrients: {}, foods: {}, entries: {}, weights: {}, settings: { ...DEFAULT_SETTINGS } };
 }
+
+/** Whether the daily intake references are shown (Settings switch, on by default). */
+export const showsReferences = (settings) => settings.showReferences ?? !settings.hideReferences;
 
 // Bring any stored or downloaded document up to the current shape.
 export function normalizeDb(raw) {

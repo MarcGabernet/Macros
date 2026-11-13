@@ -2,7 +2,7 @@
 
 import { h, icon, openSheet, add } from './dom.js';
 import { store } from '../core/store.js';
-import { KINDS, KIND_ORDER } from '../core/schema.js';
+import { KINDS, KIND_ORDER, showsReferences } from '../core/schema.js';
 import { resolveNutrients, isEnergy } from '../core/nutrients.js';
 import { currentWeightKg } from '../core/weight.js';
 import {
@@ -18,8 +18,8 @@ import { openFoodEditor } from './views/foodEditor.js';
  */
 export function allNutrients(db = store.db, date) {
   const list = resolveNutrients(db.nutrients, { weightKg: currentWeightKg(db, date) });
-  // "Hide daily intake references" in Settings: no reference anywhere, as if none existed.
-  return db.settings.hideReferences ? list.map((n) => ({ ...n, reference: null })) : list;
+  // "Show daily intake references" switched off in Settings: no reference anywhere, as if none existed.
+  return showsReferences(db.settings) ? list : list.map((n) => ({ ...n, reference: null }));
 }
 
 /** The nutrients switched on in Settings: the only ones shown anywhere else. */

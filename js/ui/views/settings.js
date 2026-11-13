@@ -3,7 +3,7 @@
 
 import { h, icon, openSheet, confirmSheet, add } from '../dom.js';
 import { store } from '../../core/store.js';
-import { SCHEMA_VERSION } from '../../core/schema.js';
+import { SCHEMA_VERSION, showsReferences } from '../../core/schema.js';
 import { GROUPS, toDisplay, fromDisplay, isEnergy } from '../../core/nutrients.js';
 import { WEIGHT_UNITS, toWeightUnit, fromWeightUnit, currentWeightKg, weighIns } from '../../core/weight.js';
 import { parseNum, inputStr, withUnit, num } from '../../core/format.js';
@@ -69,7 +69,7 @@ function openNutrientEditor(nutrient) {
         isEnergy(nutrient) ? '1 kcal = 4.184 kJ. Everything already logged converts' : 'Everything already logged converts')
       : null,
     field('Daily target', targetBox.el, 'Optional. With a target you get a progress ring on each day'),
-    store.db.settings.hideReferences ? null : field('Daily reference', refLine)));
+    showsReferences(store.db.settings) ? field('Daily reference', refLine) : null));
   sheet.foot.append(error, h('button', { class: 'btn btn-primary btn-block', type: 'button', onClick: save }, 'Save'));
 }
 
@@ -101,9 +101,9 @@ function referencesSection(db) {
     h('div', { class: 'card pad form' },
       h('div', { class: 'switch-line' },
         h('div', {},
-          h('div', { class: 'switch-text' }, 'Hide daily intake references'),
+          h('div', { class: 'switch-text' }, 'Show daily intake references'),
           h('div', { class: 'switch-sub' }, 'The "Ref" values are the EU reference intakes for an average adult (Regulation (EU) No 1169/2011, Annex XIII). Fibre comes from EFSA, and protein from EFSA’s 0.83 g per kg of body weight')),
-        toggle(!!db.settings.hideReferences, (on) => store.setSettings({ hideReferences: on }), { label: 'Hide daily intake references' }))));
+        toggle(showsReferences(db.settings), (on) => store.setSettings({ showReferences: on }), { label: 'Show daily intake references' }))));
 }
 
 function weightSection(db) {
