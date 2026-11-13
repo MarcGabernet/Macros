@@ -17,7 +17,9 @@ import { openFoodEditor } from './views/foodEditor.js';
  * first one (energy) is the headline. Sub-nutrients ("of which ...") have depth 1.
  */
 export function allNutrients(db = store.db, date) {
-  return resolveNutrients(db.nutrients, { weightKg: currentWeightKg(db, date) });
+  const list = resolveNutrients(db.nutrients, { weightKg: currentWeightKg(db, date) });
+  // "Hide daily intake references" in Settings: no reference anywhere, as if none existed.
+  return db.settings.hideReferences ? list.map((n) => ({ ...n, reference: null })) : list;
 }
 
 /** The nutrients switched on in Settings: the only ones shown anywhere else. */

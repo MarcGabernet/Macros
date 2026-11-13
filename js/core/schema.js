@@ -39,6 +39,7 @@ export const DEFAULT_SETTINGS = {
   weightUnit: 'kg',       // 'kg' | 'lb'
   weightMode: 'weighins', // 'weighins' (logged on the Day screen) | 'manual' (typed in Settings)
   weightKg: null,         // the weight typed in Settings, in kg
+  hideReferences: false,  // hide the daily intake references everywhere
   updatedAt: 0,
 };
 
