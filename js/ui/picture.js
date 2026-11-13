@@ -11,7 +11,7 @@ import { h, icon, openSheet } from './dom.js';
 const PHOTO_SIZE = 256;      // px, square
 const PHOTO_QUALITY = 0.78;
 
-// A few common foods to pick from; any other emoji can be typed.
+// The emojis to pick from.
 export const FOOD_EMOJIS = [
   '🍎', '🍌', '🍊', '🍓', '🍇', '🍐', '🍑', '🍍', '🥝', '🥑', '🍅', '🥕',
   '🥦', '🥬', '🥒', '🌽', '🥔', '🧅', '🍄', '🥜', '🌰', '🫘', '🍞', '🥐',
@@ -53,31 +53,19 @@ const isImage = (image) => image && ((image.kind === 'photo' && image.data) || (
 /** The round picture for a food; without one, its initial. */
 export function avatar(food, size = 40) {
   const image = isImage(food?.image) ? food.image : null;
-  const el = h('span', { class: `avatar${image ? '' : ' empty'}`, style: { width: `${size}px`, height: `${size}px`, fontSize: `${Math.round(size * 0.55)}px` }, 'aria-hidden': 'true' });
+  const el = h('span', { class: `avatar${image ? '' : ' avatar-none'}`, style: { width: `${size}px`, height: `${size}px`, fontSize: `${Math.round(size * 0.55)}px` }, 'aria-hidden': 'true' });
   if (image?.kind === 'photo') el.append(h('img', { src: image.data, alt: '' }));
   else if (image?.kind === 'emoji') el.textContent = image.value;
   else el.textContent = (food?.name || '?').trim().charAt(0).toUpperCase() || '?';
   return el;
 }
 
-/** The first emoji in some text, or null. */
-function firstEmoji(text) {
-  const seg = globalThis.Intl?.Segmenter ? [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].map((s) => s.segment) : [...text];
-  return seg.find((g) => /\p{Extended_Pictographic}/u.test(g)) || null;
-}
-
-/** Choose an emoji: a grid of food emojis, or type any other. */
+/** Choose an emoji from a grid. */
 function openEmojiPicker(onPick) {
   const sheet = openSheet({ title: 'Choose an emoji' });
-  const typed = h('input', {
-    class: 'input emoji-input', type: 'text', autocomplete: 'off', placeholder: 'Or type any emoji', 'aria-label': 'Type an emoji',
-    onInput: () => { const e = firstEmoji(typed.value); if (e) { sheet.close(); onPick(e); } },
-  });
-  sheet.body.append(
-    h('div', { class: 'emoji-grid' }, FOOD_EMOJIS.map((e) => h('button', {
-      class: 'emoji-btn', type: 'button', 'aria-label': e, onClick: () => { sheet.close(); onPick(e); },
-    }, e))),
-    typed);
+  sheet.body.append(h('div', { class: 'emoji-grid' }, FOOD_EMOJIS.map((e) => h('button', {
+    class: 'emoji-btn', type: 'button', 'aria-label': e, onClick: () => { sheet.close(); onPick(e); },
+  }, e))));
 }
 
 /**
@@ -90,7 +78,7 @@ export function pictureField({ get, onChange, getName }) {
   const libInput = h('input', { type: 'file', accept: 'image/*', hidden: true });
   const preview = h('div', { class: 'picture-preview' });
   const note = h('div', { class: 'field-hint' });
-  const removeBtn = h('button', { class: 'btn btn-small btn-danger-ghost', type: 'button', onClick: () => { onChange(null); paint(); } }, 'Remove');
+  const removeBtn = h('button', { class: 'pic-btn pic-remove', type: 'button', 'aria-label': 'Remove picture', title: 'Remove picture', onClick: () => { onChange(null); paint(); } }, icon('trash', 20));
 
   function paint() {
     preview.replaceChildren(avatar({ image: get(), name: getName() }, 72));
@@ -116,10 +104,10 @@ export function pictureField({ get, onChange, getName }) {
   const el = h('div', { class: 'picture-field' },
     preview,
     h('div', { class: 'picture-actions' },
-      h('div', { class: 'btn-row wrap' },
-        h('button', { class: 'btn btn-small', type: 'button', onClick: () => camInput.click() }, icon('camera', 16), 'Photo'),
-        h('button', { class: 'btn btn-small', type: 'button', onClick: () => libInput.click() }, 'Library'),
-        h('button', { class: 'btn btn-small', type: 'button', onClick: () => openEmojiPicker((e) => { onChange({ kind: 'emoji', value: e }); paint(); }) }, 'Emoji'),
+      h('div', { class: 'pic-buttons' },
+        h('button', { class: 'pic-btn', type: 'button', 'aria-label': 'Take a photo', title: 'Take a photo', onClick: () => camInput.click() }, icon('camera', 20)),
+        h('button', { class: 'pic-btn', type: 'button', 'aria-label': 'Choose from library', title: 'Choose from library', onClick: () => libInput.click() }, icon('image', 20)),
+        h('button', { class: 'pic-btn', type: 'button', 'aria-label': 'Choose an emoji', title: 'Choose an emoji', onClick: () => openEmojiPicker((e) => { onChange({ kind: 'emoji', value: e }); paint(); }) }, icon('smile', 20)),
         removeBtn),
       note),
     camInput, libInput);
