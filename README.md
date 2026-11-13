@@ -18,7 +18,7 @@ home screen. No build step, no dependencies: plain HTML, CSS and JavaScript.
 - **Day**: macros on top (progress rings once a target is set), then
   minerals and vitamins, a "Current weight" weigh-in and what you ate.
 - **Calendar**: week or month, with daily, weekly and monthly totals and
-  graphs of weight, energy and each macro.
+  graphs of weight, calories and each macro.
 - **Nutrients**: a fixed list in `js/core/nutrients.js` (EU label order, with
   "of which" sub-nutrients). In Settings each can be switched off (hidden, values
   kept), given a daily target, and where it makes sense shown in another unit.

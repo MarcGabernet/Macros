@@ -29,7 +29,6 @@ const ug = (x) => x / 1e6;
  * parent:    "of which ..." sub-nutrient of another one
  * color:     colour slot from the CSS (sub-nutrients use their parent's)
  * brief:     shorter name for tight spots (defaults to name)
- * settingsName: name used in Settings, when it differs (defaults to name)
  * line:      position in the compact one-line summary under each food (omit to leave it out)
  * ref:       daily reference for an adult, in the base unit (EU Regulation 1169/2011, Annex XIII;
  *            fibre from EFSA, which the EU label has none for). Not editable.
@@ -40,7 +39,7 @@ const ug = (x) => x / 1e6;
  * Note: in the EU fibre is NOT part of carbohydrate; it is listed on its own.
  */
 export const CATALOG = [
-  { id: 'kcal', group: 'macro', name: 'Energy', settingsName: 'Calories', short: 'kcal', dimension: 'energy', unit: 'kcal', units: ['kcal', 'kJ'], color: 'orange', line: 1, ref: 2000 },
+  { id: 'kcal', group: 'macro', name: 'Calories', short: 'kcal', dimension: 'energy', unit: 'kcal', units: ['kcal', 'kJ'], color: 'orange', line: 1, ref: 2000 },
   { id: 'fat', group: 'macro', name: 'Fat', short: 'F', dimension: 'mass', unit: 'g', units: ['g'], color: 'magenta', line: 4, ref: 70 },
   { id: 'saturates', group: 'macro', name: 'Saturates', short: 'Sat', dimension: 'mass', unit: 'g', units: ['g'], parent: 'fat', ref: 20 },
   { id: 'monounsaturates', group: 'macro', name: 'Monounsaturates', brief: 'Monounsat.', short: 'Mono', dimension: 'mass', unit: 'g', units: ['g'], parent: 'fat' },

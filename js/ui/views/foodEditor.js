@@ -185,7 +185,7 @@ export function openFoodEditor({ food, kind, initialName = '', onSaved } = {}) {
         : `Nutrition in one ${draft.pieceName.trim() || 'piece'}`;
       percentBtn.disabled = !grams && draft.mode !== 'percent';
       hint.textContent = draft.mode === 'percent'
-        ? (grams ? `Percent of the unit's ${num(grams, 1)} g. Energy stays as an amount` : 'Set the weight of one unit to use percentages')
+        ? (grams ? `Percent of the unit's ${num(grams, 1)} g. Calories stay as an amount` : 'Set the weight of one unit to use percentages')
         : (!grams ? 'Give the unit a weight to type values as percentages' : '');
     };
 
