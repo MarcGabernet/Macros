@@ -11,6 +11,7 @@ import {
 } from '../../core/calc.js';
 import { parseNum, inputStr, num, amountLabel, withUnit } from '../../core/format.js';
 import { GROUPS, toDisplay, fromDisplay, isEnergy } from '../../core/nutrients.js';
+import { pictureField, photoFromUrl } from '../picture.js';
 import {
   activeNutrients, segmented, numberField, field, macroLine, dot, openFoodPicker, openAmountSheet,
 } from '../components.js';
@@ -19,7 +20,7 @@ const listKinds = (kinds) => kinds.map((k) => KINDS[k].label.toLowerCase()).join
 
 /**
  * `food`: an existing food to edit. Otherwise a new one of `kind`, optionally
- * pre-filled from `initial` (e.g. a scanned product: { name, unit, values, barcode, sourceNote }).
+ * pre-filled from `initial` (e.g. a scanned product: { name, unit, values, barcode, imageUrl, sourceNote }).
  */
 export function openFoodEditor({ food, kind, initialName = '', initial = null, onSaved } = {}) {
   const k = food?.kind || initial?.kind || kind;
@@ -40,6 +41,7 @@ export function openFoodEditor({ food, kind, initialName = '', initial = null, o
     pieceGrams: src?.unit?.type === 'piece' ? inputStr(src.unit.grams) : '',
     mode: src?.inputMode ?? 'amount', // 'amount' | 'percent': how values are typed
     barcode: src?.barcode ?? '',
+    image: src?.image ?? null, // { kind: 'photo', data } | { kind: 'emoji', value } | null
     inputs: {},
     components: (src?.components ?? []).map((c) => ({ foodId: c.foodId, amount: { ...c.amount } })),
   };
@@ -82,6 +84,7 @@ export function openFoodEditor({ food, kind, initialName = '', initial = null, o
     // A product barcode, so scanning it again finds this food (ingredients only).
     const code = k === 'ingredient' ? draft.barcode.replace(/\D/g, '') : '';
     if (code) base.barcode = code; else delete base.barcode;
+    if (draft.image) base.image = draft.image; else delete base.image;
     if (draft.source === 'components') {
       return {
         ...base,
@@ -124,6 +127,19 @@ export function openFoodEditor({ food, kind, initialName = '', initial = null, o
   }
 
   const sheet = openSheet({ title: food ? `Edit ${kindLabel}` : `New ${kindLabel}` });
+  const picture = pictureField({
+    get: () => draft.image,
+    onChange: (image) => { draft.image = image; },
+    getName: () => draft.name,
+  });
+  // A scanned product: use its photo from Open Food Facts, unless one is already set.
+  if (initial?.imageUrl && !draft.image) {
+    picture.setNote('Getting the product photo…');
+    photoFromUrl(initial.imageUrl).then((image) => {
+      if (image && !draft.image) { draft.image = image; picture.setNote('Photo from Open Food Facts'); } else picture.setNote('');
+      picture.paint();
+    });
+  }
   const barcodeInput = h('input', {
     class: 'input', type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'none',
     'aria-label': 'Barcode', value: draft.barcode,
@@ -137,7 +153,7 @@ export function openFoodEditor({ food, kind, initialName = '', initial = null, o
   const nameInput = h('input', {
     class: 'input', type: 'text', placeholder: k === 'ingredient' ? 'e.g. Egg' : k === 'dish' ? 'e.g. Tomato pasta' : 'e.g. Usual breakfast',
     autocomplete: 'off', autocapitalize: 'sentences', 'aria-label': 'Name', value: draft.name,
-    onInput: () => { draft.name = nameInput.value; },
+    onInput: () => { draft.name = nameInput.value; if (!draft.image) picture.paint(); },
   });
 
   // ---- sections (rebuilt when the structure changes, not on every keystroke)
@@ -282,6 +298,7 @@ export function openFoodEditor({ food, kind, initialName = '', initial = null, o
     error.textContent = '';
     fill(form,
       initial?.sourceNote ? h('div', { class: 'notice notice-info' }, icon('alert', 16), initial.sourceNote) : null,
+      field('Picture', picture.el),
       field('Name', nameInput),
       k === 'ingredient' ? field('Barcode', barcodeInput, 'Optional. Scanning this barcode later finds this ingredient') : null,
       composable

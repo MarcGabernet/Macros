@@ -4,7 +4,7 @@ import { h, icon, trackKeyboard } from './ui/dom.js';
 import { store } from './core/store.js';
 import { today } from './core/dates.js';
 import { sync } from './sync/engine.js';
-import { renderDay } from './ui/views/day.js';
+import { renderDay, logFood } from './ui/views/day.js';
 import { openScanner } from './ui/views/scanner.js';
 import { renderCalendar } from './ui/views/calendar.js';
 import { renderFoods } from './ui/views/foods.js';
@@ -52,7 +52,10 @@ function renderTabs() {
   }, icon(tab.icon, 22), h('span', {}, tab.label));
   tabBar.replaceChildren(
     tabButton(TABS[0]), tabButton(TABS[1]),
-    h('button', { type: 'button', class: 'tab-add', 'aria-label': 'Scan a product', onClick: () => openScanner() }, icon('camera', 26)),
+    // The middle button: scan a product while in Foods, add food to the day everywhere else.
+    ui.tab === 'foods'
+      ? h('button', { type: 'button', class: 'tab-add', 'aria-label': 'Scan a product', onClick: () => openScanner() }, icon('camera', 26))
+      : h('button', { type: 'button', class: 'tab-add', 'aria-label': 'Add food', onClick: () => logFood(ui.date) }, icon('plus', 26)),
     tabButton(TABS[2]), tabButton(TABS[3]));
 }
 

@@ -5,7 +5,7 @@
 import { CATALOG } from '../core/nutrients.js';
 
 const API = 'https://world.openfoodfacts.org/api/v2/product/';
-const FIELDS = ['code', 'product_name', 'product_name_es', 'product_name_en', 'generic_name', 'brands', 'quantity', 'product_quantity', 'nutriments'].join(',');
+const FIELDS = ['code', 'product_name', 'product_name_es', 'product_name_en', 'generic_name', 'brands', 'quantity', 'product_quantity', 'nutriments', 'image_front_url', 'image_front_small_url', 'image_url'].join(',');
 const KCAL_PER_KJ = 1 / 4.184;
 const SALT_PER_SODIUM = 2.5;
 
@@ -68,7 +68,7 @@ function productName(p) {
 
 /**
  * Look a barcode up. Resolves to null when Open Food Facts doesn't have it, or
- * { name, values, packageGrams, nutrientCount } (values per 100 g).
+ * { name, values, packageGrams, nutrientCount, imageUrl } (values per 100 g; imageUrl: the front of the pack, if any).
  * Throws LookupError when there's no connection or the service fails.
  */
 export async function lookupBarcode(code) {
@@ -90,5 +90,6 @@ export async function lookupBarcode(code) {
     values,
     packageGrams: Number.isFinite(grams) && grams > 0 ? grams : null,
     nutrientCount: Object.keys(values).length,
+    imageUrl: p.image_front_url || p.image_url || p.image_front_small_url || null,
   };
 }

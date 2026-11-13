@@ -7,6 +7,7 @@ import { entriesByDate, entryValues, sumValues } from '../../core/calc.js';
 import { today, addDays, weekDays, fmt } from '../../core/dates.js';
 import { amountLabel, num, parseNum, inputStr } from '../../core/format.js';
 import { GROUPS } from '../../core/nutrients.js';
+import { avatar } from '../picture.js';
 import { weighIns, weighInOn, toWeightUnit, fromWeightUnit } from '../../core/weight.js';
 import {
   activeNutrients, summaryCard, goalsStrip, nutrientListCard, macroLine, emptyState, openFoodPicker, openAmountSheet, numberField,
@@ -104,6 +105,7 @@ export function renderDay({ ui, go }) {
     });
     return h('div', { class: 'row-wrap' },
       h('button', { class: 'row', type: 'button', onClick: edit },
+        avatar(food, 40),
         h('div', { class: 'row-main' },
           h('div', { class: 'row-title' }, food ? food.name : 'Unknown food'),
           h('div', { class: 'row-sub' }, food ? `${amountLabel(food, entry.amount)} · ${KINDS[food.kind].label}` : '')),
@@ -134,7 +136,7 @@ export function renderDay({ ui, go }) {
     h('section', {},
       h('div', { class: 'section-head' },
         h('h2', {}, 'Eaten'),
-        entries.length ? h('button', { class: 'btn btn-primary btn-small', type: 'button', onClick: () => logFood(ui.date) }, icon('plus', 16), 'Add food') : null),
+        entries.length ? h('span', { class: 'muted' }, `${entries.length} item${entries.length > 1 ? 's' : ''}`) : null),
       entries.length
         ? h('div', { class: 'card list' }, rows)
         : h('div', { class: 'card' }, emptyState('Nothing logged yet', 'Add what you ate and the totals appear above',

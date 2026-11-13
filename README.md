@@ -106,7 +106,8 @@ js/core/merge.js             merging two copies of the data
 js/core/dates.js, format.js  days, and turning numbers into text
 js/sync/google.js            Google sign-in and Drive calls
 js/sync/foodfacts.js         product lookup by barcode (Open Food Facts)
-js/vendor/zxing.min.js       ZXing barcode reader (Apache 2.0), for phones without a built-in one
+js/vendor/zxing-wasm-*       zxing-wasm 3.1.6 barcode reader (MIT; ZXing C++, Apache 2.0),
+                             for phones without a built-in one (Safari on iPhone)
 js/sync/engine.js            when to upload, download and merge
 js/ui/                       the screens (views/) and shared pieces
 sw.js, manifest.webmanifest  offline use and the home-screen app

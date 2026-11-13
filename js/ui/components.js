@@ -10,6 +10,7 @@ import {
 } from '../core/calc.js';
 import { nutrientNum, withUnit, unitLabel, amountSuffix, parseNum, inputStr, pieceName } from '../core/format.js';
 import { openFoodEditor } from './views/foodEditor.js';
+import { avatar } from './picture.js';
 
 /**
  * Every nutrient, enabled or not, with your unit/target settings and its daily
@@ -275,6 +276,7 @@ export function foodRow(food, db, nutrients, { onClick, showKind = false, traili
   const sub = [showKind ? KINDS[food.kind].label : null, unitLabel(food, db.foods)].filter(Boolean).join(' · ');
   return h('div', { class: 'row-wrap' },
     h('button', { class: 'row', type: 'button', onClick },
+      avatar(food, 40),
       h('div', { class: 'row-main' },
         h('div', { class: 'row-title' }, food.name, incomplete ? h('span', { class: 'warn-mark', title: 'Some parts are incomplete' }, icon('alert', 14)) : null),
         h('div', { class: 'row-sub' }, sub)),

@@ -1,67 +1,99 @@
 // Scanning a product's barcode to create an ingredient from Open Food Facts.
 //
-// How a barcode is read, so that a blurry frame can't produce a wrong number:
-// - the camera is asked for an HD picture with continuous autofocus;
-// - only the part of the picture inside the on-screen frame is read;
-// - it's read with the browser's own reader where there is one (Chrome on
-//   Android), otherwise with the bundled ZXing library (Safari on iPhone);
-// - a number is accepted only once the same one has been read several times in
-//   a row and its check digit is valid.
-// The barcode can also be typed.
+// Two ways to read the barcode:
+// - Live: the camera picture is read several times a second. A number is
+//   accepted once the same valid one (check digit) has been read twice.
+// - Photo: a still photo taken with the phone's own camera (sharp, full
+//   resolution, autofocus), read once. The most reliable on iPhone.
+// Reading uses the browser's own barcode reader where there is one (Chrome on
+// Android), otherwise zxing-wasm (the C++ ZXing, which copes far better with real
+// camera pictures than the JavaScript one); the barcode can also be typed.
 
-import { h, openSheet, toast } from '../dom.js';
+import { h, icon, openSheet, toast } from '../dom.js';
 import { store } from '../../core/store.js';
 import { cleanBarcode, isValidBarcode, toLookupCode, lookupBarcode, LookupError } from '../../sync/foodfacts.js';
 import { openFoodEditor } from './foodEditor.js';
 
-// Food packaging uses EAN-13 / EAN-8 (and UPC-A in the US). The short UPC-E is left
-// out: it's rare on food here and the format most prone to false reads.
 const NATIVE_FORMATS = ['ean_13', 'ean_8', 'upc_a'];
-const ZXING_SRC = 'js/vendor/zxing.min.js';
-const SCAN_EVERY = 140;        // ms between attempts
-const SAME_READS_NEEDED = 3;   // identical readings before a number is trusted
-const MAX_CROP_WIDTH = 1280;   // px: enough detail without slowing the phone down
+const WASM_FORMATS = ['EAN13', 'EAN8', 'UPCA'];
+const VENDOR = 'js/vendor/';
+const SCAN_EVERY = 250;       // ms between attempts: slower, but each one gets a fresh, settled frame
+const SAME_READS_NEEDED = 2;  // identical valid readings before a live number is trusted
+const MAX_SIDE = 1600;        // px: longest side of what's handed to the reader
 
-let zxingLoading = null;
+let engineLoading = null;
 
-function loadZxing() {
-  if (globalThis.ZXing) return Promise.resolve(globalThis.ZXing);
-  zxingLoading ??= new Promise((resolve, reject) => {
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = ZXING_SRC;
-    s.onload = () => (globalThis.ZXing ? resolve(globalThis.ZXing) : reject(new Error('Barcode reader failed to load')));
-    s.onerror = () => { zxingLoading = null; reject(new Error('Barcode reader failed to load')); };
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('Barcode reader failed to load'));
     document.head.append(s);
   });
-  return zxingLoading;
 }
 
-/** A function that reads one canvas and resolves to the barcode text, or null. */
-async function makeDecoder() {
-  if ('BarcodeDetector' in globalThis) {
-    try {
-      const supported = await globalThis.BarcodeDetector.getSupportedFormats();
-      const formats = NATIVE_FORMATS.filter((f) => supported.includes(f));
-      if (formats.length) {
-        const detector = new globalThis.BarcodeDetector({ formats });
-        return async (canvas) => (await detector.detect(canvas))[0]?.rawValue || null;
-      }
-    } catch { /* fall back to ZXing */ }
-  }
-  const ZXing = await loadZxing();
-  const hints = new Map();
-  hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8, ZXing.BarcodeFormat.UPC_A]);
-  hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-  const reader = new ZXing.MultiFormatReader();
-  reader.setHints(hints);
-  return async (canvas) => {
-    try {
-      const bitmap = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(canvas)));
-      return reader.decode(bitmap).getText();
-    } catch {
-      return null; // nothing readable in this frame
+/** The reading engine: (canvas) => Promise<string|null>. Loaded once. */
+function loadEngine() {
+  engineLoading ??= (async () => {
+    if ('BarcodeDetector' in globalThis) {
+      try {
+        const supported = await globalThis.BarcodeDetector.getSupportedFormats();
+        const formats = NATIVE_FORMATS.filter((f) => supported.includes(f));
+        if (formats.length) {
+          const detector = new globalThis.BarcodeDetector({ formats });
+          return async (canvas) => (await detector.detect(canvas)).map((r) => r.rawValue);
+        }
+      } catch { /* use zxing-wasm */ }
     }
-  };
+    if (!globalThis.ZXingWASM) await loadScript(`${VENDOR}zxing-wasm-reader.js`);
+    const Z = globalThis.ZXingWASM;
+    Z.prepareZXingModule({
+      overrides: { locateFile: (path, prefix) => (path.endsWith('.wasm') ? new URL(VENDOR + path, document.baseURI).href : prefix + path) },
+    });
+    const options = { tryHarder: true, tryRotate: true, tryDownscale: true, formats: WASM_FORMATS, maxNumberOfSymbols: 4 };
+    return async (canvas) => {
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const results = await Z.readBarcodes(ctx.getImageData(0, 0, canvas.width, canvas.height), options);
+      return results.filter((r) => r.isValid !== false).map((r) => r.text);
+    };
+  })().catch((err) => { engineLoading = null; throw err; });
+  return engineLoading;
+}
+
+/** The first valid product barcode among the texts read, in lookup form, or null. */
+function pickCode(texts) {
+  for (const t of texts || []) {
+    const code = cleanBarcode(t);
+    if (code && isValidBarcode(code)) return toLookupCode(code);
+  }
+  return null;
+}
+
+/** Draw a picture source onto a canvas, no larger than MAX_SIDE. */
+function toCanvas(source, sw, sh, sx = 0, sy = 0, canvas = document.createElement('canvas')) {
+  const k = Math.min(1, MAX_SIDE / Math.max(sw, sh));
+  canvas.width = Math.max(1, Math.round(sw * k));
+  canvas.height = Math.max(1, Math.round(sh * k));
+  canvas.getContext('2d', { willReadFrequently: true }).drawImage(source, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+/** Read a still photo: the whole picture, then its middle band at higher detail. */
+async function readPhoto(file) {
+  const decode = await loadEngine();
+  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' }).catch(() => createImageBitmap(file));
+  const { width: w, height: h0 } = bitmap;
+  const attempts = [
+    [0, 0, w, h0],
+    [w * 0.1, h0 * 0.25, w * 0.8, h0 * 0.5],
+    [w * 0.2, h0 * 0.35, w * 0.6, h0 * 0.3],
+  ];
+  for (const [sx, sy, sw, sh] of attempts) {
+    const code = pickCode(await decode(toCanvas(bitmap, sw, sh, sx, sy)));
+    if (code) return code;
+  }
+  return null;
 }
 
 /** What happens with a barcode: your own ingredient if you have it, else Open Food Facts. */
@@ -83,11 +115,12 @@ async function handleBarcode(code, { close, setStatus }) {
   }
   close();
   const onSaved = () => toast('Saved to your ingredients');
+  const base = { kind: 'ingredient', barcode: code, unit: { type: 'mass', grams: 100 }, imageUrl: product?.imageUrl || null };
   if (!product || !product.nutrientCount) {
     openFoodEditor({
       kind: 'ingredient', onSaved,
       initial: {
-        kind: 'ingredient', name: product?.name || '', barcode: code, unit: { type: 'mass', grams: 100 }, values: {},
+        ...base, name: product?.name || '', values: {},
         sourceNote: product
           ? `Open Food Facts has barcode ${code} but no nutrition values. Type them from the label`
           : `Barcode ${code} isn’t in Open Food Facts yet. If it doesn’t match the number on the pack, close this and scan again; otherwise type the values from the label`,
@@ -98,7 +131,7 @@ async function handleBarcode(code, { close, setStatus }) {
   openFoodEditor({
     kind: 'ingredient', onSaved,
     initial: {
-      kind: 'ingredient', name: product.name, barcode: code, unit: { type: 'mass', grams: 100 }, values: product.values,
+      ...base, name: product.name, values: product.values,
       sourceNote: `Filled in from Open Food Facts, per 100 g${product.packageGrams ? ` (pack: ${product.packageGrams} g)` : ''}. Check the values against the label before saving`,
     },
   });
@@ -109,8 +142,9 @@ export function openScanner() {
   let timer = null;
   let busy = false;
   let done = false;
-  let cameraOk = false; // the camera started at least once
-  let reads = [];       // recent readings, newest last
+  let cameraOk = false;
+  let last = null;   // the last number read live
+  let count = 0;     // how many times in a row
 
   const video = h('video', { class: 'scan-video', playsinline: true, muted: true, autoplay: true });
   video.muted = true;
@@ -118,9 +152,10 @@ export function openScanner() {
   const frame = h('div', { class: 'scan-frame' }, video, target);
   const status = h('div', { class: 'scan-status', role: 'status' });
   const setStatus = (text, kind = '') => { status.textContent = text; status.className = `scan-status ${kind}`; };
-  const crop = document.createElement('canvas');
-  const ctx = crop.getContext('2d', { willReadFrequently: true });
+  const work = document.createElement('canvas');
 
+  const photoInput = h('input', { type: 'file', accept: 'image/*', capture: 'environment', hidden: true });
+  const photoBtn = h('button', { class: 'btn btn-block', type: 'button', onClick: () => photoInput.click() }, icon('camera', 18), 'Take a photo of the barcode');
   const codeInput = h('input', {
     class: 'input', type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'e.g. 8410000000000', 'aria-label': 'Barcode number',
   });
@@ -147,77 +182,63 @@ export function openScanner() {
     if (result === false && !done && cameraOk) start({ keepStatus: true });
   }
 
-  /** Copy the part of the camera picture inside the on-screen frame into `crop`. */
-  function grabTarget() {
+  /** The part of the live picture inside the on-screen frame (with a margin), or the whole picture. */
+  function grab(whole) {
     const vw = video.videoWidth;
     const vh = video.videoHeight;
-    if (!vw || !vh) return false;
+    if (!vw || !vh) return null;
+    if (whole) return toCanvas(video, vw, vh, 0, 0, work);
     const f = frame.getBoundingClientRect();
     const t = target.getBoundingClientRect();
-    // The video fills the frame like `object-fit: cover`.
-    const scale = Math.max(f.width / vw, f.height / vh);
+    const scale = Math.max(f.width / vw, f.height / vh); // the video covers the frame
     const ox = (f.width - vw * scale) / 2;
     const oy = (f.height - vh * scale) / 2;
-    // A little margin around the drawn frame, in case the barcode pokes out.
-    const mx = t.width * 0.08;
-    const my = t.height * 0.25;
-    let sx = (t.left - f.left - mx - ox) / scale;
-    let sy = (t.top - f.top - my - oy) / scale;
-    let sw = (t.width + 2 * mx) / scale;
-    let sh = (t.height + 2 * my) / scale;
-    sx = Math.max(0, sx); sy = Math.max(0, sy);
-    sw = Math.min(vw - sx, sw); sh = Math.min(vh - sy, sh);
-    const k = Math.min(1, MAX_CROP_WIDTH / sw);
-    crop.width = Math.round(sw * k);
-    crop.height = Math.round(sh * k);
-    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, crop.width, crop.height);
-    return true;
-  }
-
-  /** Accept a number only after SAME_READS_NEEDED identical, valid readings in a row. */
-  function consider(raw) {
-    const code = raw && cleanBarcode(raw);
-    if (!code || !isValidBarcode(code)) return null;
-    const norm = toLookupCode(code);
-    if (reads.length && reads[reads.length - 1] !== norm) reads = [];
-    reads.push(norm);
-    if (reads.length >= SAME_READS_NEEDED) return norm;
-    setStatus('Hold still…');
-    return null;
+    const mx = t.width * 0.12;
+    const my = t.height * 0.5;
+    const sx = Math.max(0, (t.left - f.left - mx - ox) / scale);
+    const sy = Math.max(0, (t.top - f.top - my - oy) / scale);
+    const sw = Math.min(vw - sx, (t.width + 2 * mx) / scale);
+    const sh = Math.min(vh - sy, (t.height + 2 * my) / scale);
+    return toCanvas(video, sw, sh, sx, sy, work);
   }
 
   async function start({ keepStatus = false } = {}) {
+    last = null; count = 0;
     if (!navigator.mediaDevices?.getUserMedia) {
       frame.classList.add('off');
-      setStatus('The camera isn’t available here. Type the barcode below', 'error');
+      setStatus('Live scanning isn’t available here. Take a photo of the barcode or type it', 'error');
       return;
     }
-    if (!keepStatus) setStatus('Point the camera at the barcode');
+    if (!keepStatus) setStatus('Loading the barcode reader…');
     frame.classList.remove('off');
-    reads = [];
     try {
-      const decode = await makeDecoder();
+      const decode = await loadEngine();
       if (done) return;
       stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
       });
       if (done) { stop(); return; }
-      // Keep refocusing as the phone moves (where the camera supports it).
       const track = stream.getVideoTracks()[0];
       try { await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch { /* not supported */ }
       video.srcObject = stream;
       cameraOk = true;
       await video.play().catch(() => {});
+      if (!keepStatus) setStatus('Fit the barcode inside the frame and hold still');
+      let tick = 0;
       timer = setInterval(async () => {
         if (busy || done || video.readyState < 2) return;
         busy = true;
         try {
-          if (grabTarget()) {
-            const code = consider(await decode(crop));
-            if (code) found(code);
-          }
-        } finally {
+          // Mostly the framed area; every third try the whole picture, in case the barcode sits elsewhere.
+          const canvas = grab(++tick % 3 === 0);
+          const code = canvas ? pickCode(await decode(canvas)) : null;
+          if (!code || done) return;
+          count = code === last ? count + 1 : 1;
+          last = code;
+          if (count >= SAME_READS_NEEDED) found(code);
+          else setStatus(`Reading ${code}… hold still`);
+        } catch { /* a frame that couldn't be read */ } finally {
           busy = false;
         }
       }, SCAN_EVERY);
@@ -226,10 +247,26 @@ export function openScanner() {
       frame.classList.add('off');
       const denied = err?.name === 'NotAllowedError' || err?.name === 'SecurityError';
       setStatus(denied
-        ? 'Camera access was not allowed. Allow it in your browser settings, or type the barcode below'
-        : 'The camera couldn’t start. Type the barcode below', 'error');
+        ? 'Camera access was not allowed. Take a photo of the barcode or type it below'
+        : 'Live scanning couldn’t start. Take a photo of the barcode or type it below', 'error');
     }
   }
+
+  photoInput.addEventListener('change', async () => {
+    const file = photoInput.files?.[0];
+    photoInput.value = '';
+    if (!file) return;
+    stop();
+    setStatus('Reading the photo…', 'busy');
+    try {
+      const code = await readPhoto(file);
+      if (code) { found(code); return; }
+      setStatus('No barcode found in the photo. Try closer, with the barcode flat and well lit', 'error');
+    } catch {
+      setStatus('That photo couldn’t be read', 'error');
+    }
+    if (cameraOk && !done) start({ keepStatus: true });
+  });
 
   const submitTyped = () => {
     const code = cleanBarcode(codeInput.value);
@@ -243,6 +280,7 @@ export function openScanner() {
   sheet.body.append(
     frame,
     status,
+    photoBtn, photoInput,
     h('div', { class: 'field' },
       h('div', { class: 'field-label' }, 'Or type the number under the barcode'),
       h('div', { class: 'scan-manual' }, codeInput, lookupBtn)),
@@ -251,5 +289,5 @@ export function openScanner() {
   return sheet;
 }
 
-// For tests: the steps a camera frame goes through, without a camera.
-export const _test = { makeDecoder };
+// For tests: read a picture without the camera.
+export const _test = { loadEngine, readPhoto, pickCode };
