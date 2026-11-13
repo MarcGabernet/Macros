@@ -17,6 +17,22 @@ export function cleanBarcode(text) {
   return digits.length >= 8 && digits.length <= 14 ? digits : null;
 }
 
+/**
+ * Whether the last digit is the right check digit (EAN-8, UPC-A, EAN-13, GTIN-14).
+ * Every product barcode carries one, so a misread digit is almost always caught.
+ */
+export function isValidBarcode(code) {
+  if (!/^\d+$/.test(code) || ![8, 12, 13, 14].includes(code.length)) return false;
+  const digits = [...code].map(Number);
+  const check = digits.pop();
+  let sum = 0;
+  digits.reverse().forEach((d, i) => { sum += d * (i % 2 === 0 ? 3 : 1); });
+  return (10 - (sum % 10)) % 10 === check;
+}
+
+/** The form used to look a code up and to compare it: a 12-digit UPC-A is the same product as "0" + it. */
+export const toLookupCode = (code) => (code.length === 12 ? `0${code}` : code);
+
 /** Nutrient values per 100 g in the app's own keys (base units), from Open Food Facts' `nutriments`. */
 export function mapNutriments(nutriments = {}) {
   const values = {};

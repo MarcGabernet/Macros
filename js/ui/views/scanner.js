@@ -1,16 +1,27 @@
 // Scanning a product's barcode to create an ingredient from Open Food Facts.
 //
-// The camera picture is read with the browser's own barcode reader where there
-// is one (Chrome on Android), otherwise with the bundled ZXing library (Safari
-// on iPhone has no built-in reader). The barcode can also be typed.
+// How a barcode is read, so that a blurry frame can't produce a wrong number:
+// - the camera is asked for an HD picture with continuous autofocus;
+// - only the part of the picture inside the on-screen frame is read;
+// - it's read with the browser's own reader where there is one (Chrome on
+//   Android), otherwise with the bundled ZXing library (Safari on iPhone);
+// - a number is accepted only once the same one has been read several times in
+//   a row and its check digit is valid.
+// The barcode can also be typed.
 
 import { h, openSheet, toast } from '../dom.js';
 import { store } from '../../core/store.js';
-import { cleanBarcode, lookupBarcode, LookupError } from '../../sync/foodfacts.js';
+import { cleanBarcode, isValidBarcode, toLookupCode, lookupBarcode, LookupError } from '../../sync/foodfacts.js';
 import { openFoodEditor } from './foodEditor.js';
 
-const FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e'];
+// Food packaging uses EAN-13 / EAN-8 (and UPC-A in the US). The short UPC-E is left
+// out: it's rare on food here and the format most prone to false reads.
+const NATIVE_FORMATS = ['ean_13', 'ean_8', 'upc_a'];
 const ZXING_SRC = 'js/vendor/zxing.min.js';
+const SCAN_EVERY = 140;        // ms between attempts
+const SAME_READS_NEEDED = 3;   // identical readings before a number is trusted
+const MAX_CROP_WIDTH = 1280;   // px: enough detail without slowing the phone down
+
 let zxingLoading = null;
 
 function loadZxing() {
@@ -25,27 +36,44 @@ function loadZxing() {
   return zxingLoading;
 }
 
-async function nativeDetector() {
-  if (!('BarcodeDetector' in globalThis)) return null;
-  try {
-    const supported = await globalThis.BarcodeDetector.getSupportedFormats();
-    const formats = FORMATS.filter((f) => supported.includes(f));
-    return formats.length ? new globalThis.BarcodeDetector({ formats }) : null;
-  } catch {
-    return null;
+/** A function that reads one canvas and resolves to the barcode text, or null. */
+async function makeDecoder() {
+  if ('BarcodeDetector' in globalThis) {
+    try {
+      const supported = await globalThis.BarcodeDetector.getSupportedFormats();
+      const formats = NATIVE_FORMATS.filter((f) => supported.includes(f));
+      if (formats.length) {
+        const detector = new globalThis.BarcodeDetector({ formats });
+        return async (canvas) => (await detector.detect(canvas))[0]?.rawValue || null;
+      }
+    } catch { /* fall back to ZXing */ }
   }
+  const ZXing = await loadZxing();
+  const hints = new Map();
+  hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8, ZXing.BarcodeFormat.UPC_A]);
+  hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+  const reader = new ZXing.MultiFormatReader();
+  reader.setHints(hints);
+  return async (canvas) => {
+    try {
+      const bitmap = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(canvas)));
+      return reader.decode(bitmap).getText();
+    } catch {
+      return null; // nothing readable in this frame
+    }
+  };
 }
 
 /** What happens with a barcode: your own ingredient if you have it, else Open Food Facts. */
 async function handleBarcode(code, { close, setStatus }) {
-  const mine = store.all('foods').find((f) => f.barcode === code);
+  const mine = store.all('foods').find((f) => f.barcode && toLookupCode(f.barcode) === code);
   if (mine) {
     close();
     toast('Already in your foods');
     openFoodEditor({ food: mine });
     return;
   }
-  setStatus('Looking up the product…', 'busy');
+  setStatus(`Looking up ${code}…`, 'busy');
   let product;
   try {
     product = await lookupBarcode(code);
@@ -61,8 +89,8 @@ async function handleBarcode(code, { close, setStatus }) {
       initial: {
         kind: 'ingredient', name: product?.name || '', barcode: code, unit: { type: 'mass', grams: 100 }, values: {},
         sourceNote: product
-          ? 'Open Food Facts has this product but no nutrition values. Type them from the label'
-          : 'This product isn’t in Open Food Facts yet. Type its values from the label',
+          ? `Open Food Facts has barcode ${code} but no nutrition values. Type them from the label`
+          : `Barcode ${code} isn’t in Open Food Facts yet. If it doesn’t match the number on the pack, close this and scan again; otherwise type the values from the label`,
       },
     });
     return;
@@ -78,16 +106,20 @@ async function handleBarcode(code, { close, setStatus }) {
 
 export function openScanner() {
   let stream = null;
-  let reader = null;
   let timer = null;
+  let busy = false;
   let done = false;
   let cameraOk = false; // the camera started at least once
+  let reads = [];       // recent readings, newest last
 
   const video = h('video', { class: 'scan-video', playsinline: true, muted: true, autoplay: true });
   video.muted = true;
-  const frame = h('div', { class: 'scan-frame' }, video, h('div', { class: 'scan-target', 'aria-hidden': 'true' }));
+  const target = h('div', { class: 'scan-target', 'aria-hidden': 'true' });
+  const frame = h('div', { class: 'scan-frame' }, video, target);
   const status = h('div', { class: 'scan-status', role: 'status' });
   const setStatus = (text, kind = '') => { status.textContent = text; status.className = `scan-status ${kind}`; };
+  const crop = document.createElement('canvas');
+  const ctx = crop.getContext('2d', { willReadFrequently: true });
 
   const codeInput = h('input', {
     class: 'input', type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'e.g. 8410000000000', 'aria-label': 'Barcode number',
@@ -97,24 +129,61 @@ export function openScanner() {
   function stop() {
     clearInterval(timer);
     timer = null;
-    try { reader?.reset(); } catch { /* already stopped */ }
-    reader = null;
     for (const t of stream?.getTracks() || []) t.stop();
     stream = null;
+    video.srcObject = null;
   }
 
   const sheet = openSheet({ title: 'Scan a product', onClose: () => { done = true; stop(); } });
   sheet.el.classList.add('sheet-tall');
   const close = () => { done = true; stop(); sheet.close(); };
 
-  async function found(raw) {
-    const code = cleanBarcode(raw);
-    if (!code || done) return;
+  async function found(code) {
+    if (done) return;
     stop();
     navigator.vibrate?.(40);
     const result = await handleBarcode(code, { close, setStatus });
     // Lookup failed: keep its message on screen, and keep scanning if the camera works.
     if (result === false && !done && cameraOk) start({ keepStatus: true });
+  }
+
+  /** Copy the part of the camera picture inside the on-screen frame into `crop`. */
+  function grabTarget() {
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    if (!vw || !vh) return false;
+    const f = frame.getBoundingClientRect();
+    const t = target.getBoundingClientRect();
+    // The video fills the frame like `object-fit: cover`.
+    const scale = Math.max(f.width / vw, f.height / vh);
+    const ox = (f.width - vw * scale) / 2;
+    const oy = (f.height - vh * scale) / 2;
+    // A little margin around the drawn frame, in case the barcode pokes out.
+    const mx = t.width * 0.08;
+    const my = t.height * 0.25;
+    let sx = (t.left - f.left - mx - ox) / scale;
+    let sy = (t.top - f.top - my - oy) / scale;
+    let sw = (t.width + 2 * mx) / scale;
+    let sh = (t.height + 2 * my) / scale;
+    sx = Math.max(0, sx); sy = Math.max(0, sy);
+    sw = Math.min(vw - sx, sw); sh = Math.min(vh - sy, sh);
+    const k = Math.min(1, MAX_CROP_WIDTH / sw);
+    crop.width = Math.round(sw * k);
+    crop.height = Math.round(sh * k);
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, crop.width, crop.height);
+    return true;
+  }
+
+  /** Accept a number only after SAME_READS_NEEDED identical, valid readings in a row. */
+  function consider(raw) {
+    const code = raw && cleanBarcode(raw);
+    if (!code || !isValidBarcode(code)) return null;
+    const norm = toLookupCode(code);
+    if (reads.length && reads[reads.length - 1] !== norm) reads = [];
+    reads.push(norm);
+    if (reads.length >= SAME_READS_NEEDED) return norm;
+    setStatus('Hold still…');
+    return null;
   }
 
   async function start({ keepStatus = false } = {}) {
@@ -125,36 +194,33 @@ export function openScanner() {
     }
     if (!keepStatus) setStatus('Point the camera at the barcode');
     frame.classList.remove('off');
+    reads = [];
     try {
-      const detector = await nativeDetector();
-      if (detector) {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' } } });
-        if (done) { stop(); return; }
-        video.srcObject = stream;
-        cameraOk = true;
-        await video.play().catch(() => {});
-        timer = setInterval(async () => {
-          if (video.readyState < 2) return;
-          try {
-            const codes = await detector.detect(video);
-            if (codes[0]?.rawValue) found(codes[0].rawValue);
-          } catch { /* keep trying */ }
-        }, 250);
-      } else {
-        const ZXing = await loadZxing();
-        if (done) return;
-        const hints = new Map();
-        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-          ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8, ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E,
-        ]);
-        reader = new ZXing.BrowserMultiFormatReader(hints, 300);
-        await reader.decodeFromConstraints({ audio: false, video: { facingMode: { ideal: 'environment' } } }, video, (result) => {
-          if (result) found(result.getText());
-        });
-        stream = video.srcObject;
-        cameraOk = true;
-        if (done) stop();
-      }
+      const decode = await makeDecoder();
+      if (done) return;
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      });
+      if (done) { stop(); return; }
+      // Keep refocusing as the phone moves (where the camera supports it).
+      const track = stream.getVideoTracks()[0];
+      try { await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch { /* not supported */ }
+      video.srcObject = stream;
+      cameraOk = true;
+      await video.play().catch(() => {});
+      timer = setInterval(async () => {
+        if (busy || done || video.readyState < 2) return;
+        busy = true;
+        try {
+          if (grabTarget()) {
+            const code = consider(await decode(crop));
+            if (code) found(code);
+          }
+        } finally {
+          busy = false;
+        }
+      }, SCAN_EVERY);
     } catch (err) {
       stop();
       frame.classList.add('off');
@@ -168,7 +234,8 @@ export function openScanner() {
   const submitTyped = () => {
     const code = cleanBarcode(codeInput.value);
     if (!code) { setStatus('A barcode has 8 to 14 digits', 'error'); return; }
-    found(code);
+    if (!isValidBarcode(code)) { setStatus('That number doesn’t look right: check the digits', 'error'); return; }
+    found(toLookupCode(code));
   };
   lookupBtn.addEventListener('click', submitTyped);
   codeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitTyped(); });
@@ -184,3 +251,5 @@ export function openScanner() {
   return sheet;
 }
 
+// For tests: the steps a camera frame goes through, without a camera.
+export const _test = { makeDecoder };
