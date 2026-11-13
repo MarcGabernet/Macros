@@ -27,7 +27,7 @@ const setNutrient = (id, patch) => store.put('nutrients', { ...(store.get('nutri
 /** Change how a nutrient is shown (unit) and its daily target. The list itself is fixed in code. */
 function openNutrientEditor(nutrient) {
   const draft = { unit: nutrient.unit, target: nutrient.target ? inputStr(toDisplay(nutrient, nutrient.target), 4) : '' };
-  const sheet = openSheet({ title: nutrient.depth ? `Of which ${nutrient.name.toLowerCase()}` : nutrient.name });
+  const sheet = openSheet({ title: nutrient.depth ? `Of which ${nutrient.name.toLowerCase()}` : nutrient.settingsName || nutrient.name });
   const error = h('div', { class: 'form-error', role: 'alert' });
   const shown = () => ({ ...nutrient, unit: draft.unit });
   const refLine = h('div', { class: 'field-hint' });
@@ -86,10 +86,10 @@ function nutrientsSection(db) {
         return h('div', { class: `row-wrap${n.depth ? ' sub-row' : ''}${n.enabled ? '' : ' off'}` },
           h('button', { class: 'row', type: 'button', onClick: () => openNutrientEditor(n) },
             h('div', { class: 'row-main' },
-              h('div', { class: 'row-title' }, n.depth ? `of which ${n.name.toLowerCase()}` : [dot(n), n.name]),
+              h('div', { class: 'row-title' }, n.depth ? `of which ${n.name.toLowerCase()}` : [dot(n), n.settingsName || n.name]),
               h('div', { class: 'row-sub' }, parentOff ? `Hidden with ${nutrients.find((p) => p.id === n.parent).name.toLowerCase()}` : side))),
           h('div', { class: 'row-switch' },
-            toggle(n.selfEnabled, (on) => setNutrient(n.id, { enabled: on }), { label: `Show ${n.name}`, disabled: parentOff })));
+            toggle(n.selfEnabled, (on) => setNutrient(n.id, { enabled: on }), { label: `Show ${n.settingsName || n.name}`, disabled: parentOff })));
       })),
       g.id === 'macro' ? h('p', { class: 'section-note' }, 'Switch a nutrient off to hide it everywhere. Values you already typed are kept') : null);
   });
