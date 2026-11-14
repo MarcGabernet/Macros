@@ -7,7 +7,7 @@
 // access token (about an hour) in the address, which is then removed.
 
 import { GOOGLE_CLIENT_ID, DRIVE_FILE_NAME } from '../config.js';
-import { t } from '../i18n.js';
+import { t } from '../texts.js';
 
 const AUTH = 'https://accounts.google.com/o/oauth2/v2/auth';
 const FILES = 'https://www.googleapis.com/drive/v3/files';

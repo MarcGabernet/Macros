@@ -6,7 +6,7 @@
 // worked out from its components every time.
 
 import { KINDS } from './schema.js';
-import { t } from '../i18n.js';
+import { t } from '../texts.js';
 
 const MAX_DEPTH = 4; // meal -> dish -> ingredient is 3 deep; this is only a safety net
 

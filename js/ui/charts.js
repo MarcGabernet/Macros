@@ -7,7 +7,7 @@ import { h } from './dom.js';
 import { svg } from './components.js';
 import { fmt } from '../core/dates.js';
 import { num } from '../core/format.js';
-import { t } from '../i18n.js';
+import { t } from '../texts.js';
 
 const W = 320;          // drawing units; the SVG scales to the card width
 const H = 132;

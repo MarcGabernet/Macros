@@ -13,7 +13,7 @@ import { sync } from '../../sync/engine.js';
 import { redirectUri } from '../../sync/google.js';
 import { APP_VERSION } from '../../config.js';
 import { THEMES, getTheme, setTheme } from '../theme.js';
-import { t, LANGUAGES, getLanguage, setLanguage } from '../../i18n.js';
+import { t, LANGUAGES, getLanguage, setLanguage } from '../../texts.js';
 
 /** An on/off switch. */
 function toggle(on, onChange, { label, disabled = false } = {}) {

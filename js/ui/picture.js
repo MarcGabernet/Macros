@@ -7,7 +7,7 @@
 // travel with the Drive file like everything else.
 
 import { h, icon, openSheet } from './dom.js';
-import { t } from '../i18n.js';
+import { t } from '../texts.js';
 
 const PHOTO_SIZE = 256;      // px, square
 const PHOTO_QUALITY = 0.78;

@@ -5,7 +5,7 @@ import { store } from '../../core/store.js';
 import { KINDS, KIND_ORDER } from '../../core/schema.js';
 import { activeNutrients, segmented, foodRow, emptyState } from '../components.js';
 import { openFoodEditor } from './foodEditor.js';
-import { t } from '../../i18n.js';
+import { t } from '../../texts.js';
 
 export function renderFoods({ ui, go }) {
   const db = store.db;

@@ -1,6 +1,6 @@
 // Days are handled as 'YYYY-MM-DD' strings in the device's own time zone.
 
-import { locale } from '../i18n.js';
+import { locale } from '../texts.js';
 
 // Dates and numbers are written the way the chosen language writes them.
 export const LOCALE = locale; // a function: LOCALE() -> 'en-GB' | 'ca-ES' | 'es-ES'

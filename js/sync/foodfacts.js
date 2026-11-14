@@ -3,7 +3,7 @@
 // Its data is under the Open Database License, so the app credits it where shown.
 
 import { CATALOG } from '../core/nutrients.js';
-import { t } from '../i18n.js';
+import { t } from '../texts.js';
 
 const API = 'https://world.openfoodfacts.org/api/v2/product/';
 const FIELDS = ['code', 'product_name', 'product_name_es', 'product_name_en', 'generic_name', 'brands', 'quantity', 'product_quantity', 'nutriments', 'image_front_url', 'image_front_small_url', 'image_url'].join(',');

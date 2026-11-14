@@ -10,7 +10,7 @@ import { renderCalendar } from './ui/views/calendar.js';
 import { renderFoods } from './ui/views/foods.js';
 import { renderSettings } from './ui/views/settings.js';
 import { applyTheme } from './ui/theme.js';
-import { t, onLanguageChange } from './i18n.js';
+import { t, onLanguageChange } from './texts.js';
 
 const TABS = [
   { id: 'day', label: () => t('tab.day'), icon: 'day', render: renderDay },

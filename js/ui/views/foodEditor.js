@@ -15,7 +15,7 @@ import { pictureField, photoFromUrl } from '../picture.js';
 import {
   activeNutrients, segmented, numberField, field, macroLine, dot, openFoodPicker, openAmountSheet,
 } from '../components.js';
-import { t } from '../../i18n.js';
+import { t } from '../../texts.js';
 
 
 /**

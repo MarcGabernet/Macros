@@ -4,7 +4,7 @@ import { KINDS } from './schema.js';
 import { toDisplay, isEnergy } from './nutrients.js';
 import { LOCALE } from './dates.js';
 import { unitGrams, isComposite } from './calc.js';
-import { t } from '../i18n.js';
+import { t } from '../texts.js';
 
 /** Read a typed number; accepts a comma or a dot as the decimal mark. */
 export function parseNum(text) {

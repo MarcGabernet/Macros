@@ -11,7 +11,7 @@ import { store } from '../core/store.js';
 import { mergeDbs } from '../core/merge.js';
 import { COLLECTIONS, normalizeDb } from '../core/schema.js';
 import { isConfigured, beginSignIn, consumeRedirect, drive, AuthError, OfflineError } from './google.js';
-import { t } from '../i18n.js';
+import { t } from '../texts.js';
 
 const META_KEY = 'macros.sync'; // this device's sync state; never uploaded
 const SAVE_DELAY = 2500;        // wait this long after a change before uploading

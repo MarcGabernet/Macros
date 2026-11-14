@@ -2,7 +2,7 @@
 // starts with the device's own. Kept on this device only (each device can look
 // its own way); index.html applies it before the page draws, so it doesn't flash.
 
-import { t } from '../i18n.js';
+import { t } from '../texts.js';
 
 const KEY = 'macros.theme';
 export const THEMES = [

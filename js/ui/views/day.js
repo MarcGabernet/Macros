@@ -12,7 +12,7 @@ import { weighIns, weighInOn, toWeightUnit, fromWeightUnit } from '../../core/we
 import {
   activeNutrients, summaryCard, goalsStrip, nutrientListCard, macroLine, emptyState, openFoodPicker, openAmountSheet, numberField,
 } from '../components.js';
-import { t } from '../../i18n.js';
+import { t } from '../../texts.js';
 
 /**
  * "Current weight" for a day (only when weigh-ins are on in Settings).

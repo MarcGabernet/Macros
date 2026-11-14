@@ -12,7 +12,7 @@ import { toDisplay, ofWhich } from '../../core/nutrients.js';
 import { weighInOn, toWeightUnit } from '../../core/weight.js';
 import { barChart, lineChart } from '../charts.js';
 import { logFood } from './day.js';
-import { t } from '../../i18n.js';
+import { t } from '../../texts.js';
 
 /**
  * Graphs for the period: body weight (with daily weigh-ins), then energy and

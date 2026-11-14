@@ -1,6 +1,6 @@
 // Small helpers for building the screen: elements, icons, sheets, messages.
 
-import { t } from '../i18n.js';
+import { t } from '../texts.js';
 
 /**
  * Create an element. `props`: class, style (object; `--custom` keys allowed),

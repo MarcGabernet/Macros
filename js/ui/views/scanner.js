@@ -13,7 +13,7 @@ import { h, icon, openSheet, toast } from '../dom.js';
 import { store } from '../../core/store.js';
 import { cleanBarcode, isValidBarcode, toLookupCode, lookupBarcode, LookupError } from '../../sync/foodfacts.js';
 import { openFoodEditor } from './foodEditor.js';
-import { t } from '../../i18n.js';
+import { t } from '../../texts.js';
 
 const NATIVE_FORMATS = ['ean_13', 'ean_8', 'upc_a'];
 const WASM_FORMATS = ['EAN13', 'EAN8', 'UPCA'];

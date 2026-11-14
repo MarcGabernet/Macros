@@ -11,7 +11,7 @@ import {
 import { nutrientNum, withUnit, unitLabel, amountSuffix, parseNum, inputStr, pieceName } from '../core/format.js';
 import { openFoodEditor } from './views/foodEditor.js';
 import { avatar } from './picture.js';
-import { t } from '../i18n.js';
+import { t } from '../texts.js';
 
 /**
  * Every nutrient, enabled or not, with your unit/target settings and its daily

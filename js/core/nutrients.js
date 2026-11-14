@@ -6,7 +6,7 @@
 // switching g -> mg converts the numbers instead of relabelling them.
 // Energy and weight are different things and never convert into each other.
 
-import { t } from '../i18n.js';
+import { t } from '../texts.js';
 
 export const DIMENSIONS = {
   energy: { base: 'kcal', units: { kcal: 1, kJ: 4.184 } },      // shown = base × factor
@@ -30,7 +30,7 @@ const ug = (x) => x / 1e6;
  * parent:    "of which ..." sub-nutrient of another one
  * color:     colour slot from the CSS (sub-nutrients use their parent's)
  * brief:     has a shorter name for tight spots (texts: nutrient.<id>.brief)
- * Names come from i18n.js: nutrient.<id> (and .short for the compact line, .brief)
+ * Names come from texts.js: nutrient.<id> (and .short for the compact line, .brief)
  * line:      position in the compact one-line summary under each food (omit to leave it out)
  * ref:       daily reference for an adult, in the base unit (EU Regulation 1169/2011, Annex XIII;
  *            fibre from EFSA, which the EU label has none for). Not editable.

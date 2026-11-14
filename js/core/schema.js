@@ -1,7 +1,7 @@
 // The shape of the data. Everything the app tracks is described here as data,
 // so adding a new nutrient, kind of food or way of measuring is a table edit.
 
-import { t } from '../i18n.js';
+import { t } from '../texts.js';
 
 // RULE: saved data must keep working in every future version.
 // - Never rename or reuse a stored key (nutrient ids, collections, settings, fields).
@@ -20,7 +20,7 @@ export const COLLECTIONS = ['nutrients', 'foods', 'entries', 'weights'];
 // They differ only in what they may be composed of. Because a dish can hold
 // ingredients only, and a meal can hold ingredients and dishes but never meals,
 // composition can never loop back on itself.
-// Their names and sentences live in i18n.js under `kind.<id>.*`.
+// Their names and sentences live in texts.js under `kind.<id>.*`.
 const kind = (id, components) => ({
   id, components,
   get label() { return t(`kind.${id}`); },
