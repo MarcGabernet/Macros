@@ -1,5 +1,5 @@
-// Settings: a menu of pages. Data (nutrients, goals, body weight),
-// Account (Google Drive) and View (theme, daily references).
+// Settings: a menu of pages. General (language, theme), Data (nutrients, goals,
+// daily references, body weight) and Account (Google Drive).
 
 import { h, icon, openSheet, confirmSheet, add, fill } from '../dom.js';
 import { store } from '../../core/store.js';
@@ -257,16 +257,16 @@ function languageSection() {
 // Settings is a menu of pages; each page holds its own options.
 const PAGES = [
   {
+    id: 'general', title: () => t('settings.general'), icon: 'settings',
+    render: () => [languageSection(), themeSection()],
+  },
+  {
     id: 'data', title: () => t('settings.data'), icon: 'foods',
-    render: (db) => [nutrientsSection(db), weightSection(db)],
+    render: (db) => [nutrientsSection(db), referencesSection(db), weightSection(db)],
   },
   {
     id: 'account', title: () => t('settings.account'), icon: 'cloud',
     render: () => [h('section', {}, h('div', { class: 'section-head' }, h('h2', {}, t('sync.googleDrive'))), syncCard())],
-  },
-  {
-    id: 'view', title: () => t('settings.view'), icon: 'eye',
-    render: (db) => [languageSection(), themeSection(), referencesSection(db)],
   },
 ];
 

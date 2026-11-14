@@ -321,7 +321,7 @@ const TEXTS = {
   // -------------------------------------------------------------- settings
   'settings.data': { en: 'Data', ca: 'Dades', es: 'Datos' },
   'settings.account': { en: 'Account', ca: 'Compte', es: 'Cuenta' },
-  'settings.view': { en: 'View', ca: 'Visualització', es: 'Visualización' },
+  'settings.general': { en: 'General', ca: 'General', es: 'General' },
   'settings.language': { en: 'Language', ca: 'Idioma', es: 'Idioma' },
   'settings.theme': { en: 'Theme', ca: 'Tema', es: 'Tema' },
   'settings.thisDeviceOnly': { en: 'Saved on this device only', ca: 'Només es desa en aquest dispositiu', es: 'Solo se guarda en este dispositivo' },

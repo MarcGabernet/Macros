@@ -1,4 +1,4 @@
-// Light or dark look, chosen in Settings > View. Until one is chosen, the app
+// Light or dark look, chosen in Settings > General. Until one is chosen, the app
 // starts with the device's own. Kept on this device only (each device can look
 // its own way); index.html applies it before the page draws, so it doesn't flash.
 

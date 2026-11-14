@@ -27,7 +27,7 @@ const ui = {
   calDate: today(),
   foodKind: 'ingredient',
   foodQuery: '',
-  settingsPage: null, // null: the Settings menu; 'data' | 'account' | 'view': one of its pages
+  settingsPage: null, // null: the Settings menu; 'general' | 'data' | 'account': one of its pages
 };
 
 const root = document.getElementById('app');

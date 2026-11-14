@@ -118,7 +118,7 @@ To add something new:
 
 - **A nutrient**: one line in `CATALOG` in `js/core/nutrients.js`. Its name goes in `js/texts.js` (`nutrient.<id>`, `.short`).
 - **A language**: add it to `LANGUAGES` in `js/texts.js` and a text for it in
-  each entry (missing ones fall back to English). It appears in Settings > View.
+  each entry (missing ones fall back to English). It appears in Settings > General.
 - **A kind of food** (say, a "day plan" made of meals): one entry in `KINDS`
   in `js/core/schema.js`, listing what it may contain.
 - **A new field on foods or log entries**: records are plain objects, so add
