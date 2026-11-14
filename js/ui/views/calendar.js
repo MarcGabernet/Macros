@@ -62,7 +62,7 @@ function totalsTable(stats, nutrients, title) {
 }
 
 function weekView({ ui, go }, db, nutrients, byDate) {
-  const days = weekDays(ui.calDate, 1);
+  const days = weekDays(ui.calDate);
   const stats = rangeTotals(days, byDate, db.foods);
   const main = nutrients[0];
   const tday = today();
@@ -97,8 +97,7 @@ function weekView({ ui, go }, db, nutrients, byDate) {
 }
 
 function monthView({ ui, go }, db, nutrients, byDate) {
-  const ws = 1; // weeks start on Monday
-  const weeks = monthWeeks(ui.calDate, ws);
+  const weeks = monthWeeks(ui.calDate);
   const days = monthDays(ui.calDate);
   const stats = rangeTotals(days, byDate, db.foods);
   const main = nutrients[0];

@@ -48,13 +48,6 @@ export function unitGrams(food, foods, depth = 0) {
   return total > 0 ? total : null;
 }
 
-/** Grams in one countable unit of the food (an egg, a whole meal), or null when unknown. */
-export function countGrams(food, foods) {
-  if (!food) return null;
-  if (food.unit?.type === 'mass') return Number(food.unit.pieceGrams) > 0 ? Number(food.unit.pieceGrams) : null;
-  return unitGrams(food, foods);
-}
-
 /** How many value units (see the top of this file) an amount is, or null when it can't be told. */
 export function amountFactor(food, amount, foods, depth = 0) {
   if (!food || !amount) return null;

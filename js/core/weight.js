@@ -3,6 +3,7 @@
 // Two ways to know your weight, chosen in Settings (`settings.weightMode`):
 //  'weighins': you log weigh-ins on the Day screen (collection `weights`, one per
 //              day, keyed by date); your weight is the latest one up to a given day.
+//              Before your first weigh-in, the weight typed in Settings is used.
 //  'manual':   you type one weight in Settings (`settings.weightKg`).
 
 import { today } from './dates.js';
@@ -28,7 +29,8 @@ export const weighInOn = (db, date) => {
 
 /** Your weight in kg as of a day (today by default), or null when unknown. */
 export function currentWeightKg(db, date = today()) {
-  if ((db.settings.weightMode || 'weighins') === 'manual') return Number(db.settings.weightKg) > 0 ? Number(db.settings.weightKg) : null;
+  const typed = Number(db.settings.weightKg) > 0 ? Number(db.settings.weightKg) : null;
+  if ((db.settings.weightMode || 'weighins') === 'manual') return typed;
   const before = weighIns(db).filter((w) => w.date <= date);
-  return before.length ? before[before.length - 1].kg : null;
+  return before.length ? before[before.length - 1].kg : typed;
 }

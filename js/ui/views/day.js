@@ -25,7 +25,8 @@ function weightCard(db, date) {
   const earlier = weighIns(db).filter((w) => w.date < date).pop();
   const box = numberField({
     value: own ? inputStr(toWeightUnit(own.kg, unit), 1) : '',
-    placeholder: earlier ? inputStr(toWeightUnit(earlier.kg, unit), 1) : '0',
+    // Hint: your last weigh-in, else the weight typed in Settings.
+    placeholder: (earlier?.kg ?? db.settings.weightKg) > 0 ? inputStr(toWeightUnit(earlier?.kg ?? db.settings.weightKg, unit), 1) : '0',
     suffix: unit, label: t('weight.label'),
   });
   const save = () => {
@@ -90,7 +91,7 @@ export function renderDay({ ui, go }) {
   const tday = today();
   const first = firstOpenDay(db);
 
-  const strip = h('div', { class: 'week-strip' }, weekDays(ui.date, 1).map((d) => h('button', {
+  const strip = h('div', { class: 'week-strip' }, weekDays(ui.date).map((d) => h('button', {
     type: 'button', class: `strip-day${d === ui.date ? ' on' : ''}${d === tday ? ' is-today' : ''}`, disabled: !isOpenDay(d, first),
     'aria-label': fmt(d, { weekday: 'long', day: 'numeric', month: 'long' }), 'aria-current': d === ui.date ? 'date' : null,
     onClick: () => go({ date: d }),

@@ -289,6 +289,3 @@ export function openScanner() {
   start();
   return sheet;
 }
-
-// For tests: read a picture without the camera.
-export const _test = { loadEngine, readPhoto, pickCode };

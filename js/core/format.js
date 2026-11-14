@@ -1,6 +1,5 @@
 // Turning numbers and amounts into text, and typed text back into numbers.
 
-import { KINDS } from './schema.js';
 import { toDisplay, isEnergy } from './nutrients.js';
 import { LOCALE } from './dates.js';
 import { unitGrams, isComposite } from './calc.js';
@@ -50,7 +49,7 @@ export function unitLabel(food, foods) {
     return piece > 0 ? `${per} · ${t('unit.oneUnit', { g: num(piece, 0) })}` : per;
   }
   const grams = unitGrams(food, foods);
-  const head = isComposite(food) ? t(`kind.${food.kind}.whole`) : t('unit.perOneUnit');
+  const head = isComposite(food) ? t('kind.meal.whole') : t('unit.perOneUnit');
   return grams ? `${head} · ${num(grams, 0)} g` : head;
 }
 

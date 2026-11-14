@@ -10,7 +10,6 @@ home screen. No build step, no dependencies: plain HTML, CSS and JavaScript.
   - **Product**: has its own values (typed, or filled in by scanning). Names and
     barcodes are unique.
   - **Meal**: built from products only. Never from meals, never typed directly.
-  Older data with dishes is converted on load (`js/core/migrate.js`).
 - **One unit** of a food is either a weight (for example 100 g) or one piece
   (1 egg), optionally with a weight. Values are typed as amounts, or as a
   percentage of the unit when the unit has a weight.

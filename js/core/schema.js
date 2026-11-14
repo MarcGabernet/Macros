@@ -17,10 +17,9 @@ export const SCHEMA_VERSION = 1;
 export const COLLECTIONS = ['nutrients', 'foods', 'entries', 'weights'];
 
 // "Food" is the general word for what you log. There are two kinds:
-// - a product (id 'ingredient', kept from earlier versions): its own typed values;
+// - a product (stored with the id 'ingredient'): its own typed values;
 // - a meal: built only from products, never typed directly.
 // A meal can't contain a meal, so composition can never loop back on itself.
-// Older versions also had dishes; core/migrate.js turns them into products or meals.
 // Names and sentences live in texts.js under `kind.<id>.*`.
 const kind = (id, { components, direct }) => ({
   id,
@@ -37,29 +36,24 @@ export const KINDS = {
 export const KIND_ORDER = ['ingredient', 'meal'];
 
 export const allowedComponentKinds = (kind) => KINDS[kind]?.components ?? [];
-export const canBeComposite = (kind) => allowedComponentKinds(kind).length > 0;
 export const canBeDirect = (kind) => KINDS[kind]?.direct ?? true;
 
-// Ways to say "how much" of a food: used for what you eat and for recipe parts.
-export const AMOUNT_TYPES = ['grams', 'units', 'percent'];
-
 export const DEFAULT_SETTINGS = {
-  weekStart: 1,           // no longer used: weeks always start on Monday (kept so older data still reads)
   weightUnit: 'kg',       // 'kg' | 'lb'
   weightMode: 'weighins', // 'weighins' (logged on the Day screen) | 'manual' (typed in Settings)
-  weightKg: null,         // the weight typed in Settings, in kg
+  weightKg: null,         // the weight typed in Settings, in kg (with weigh-ins: used until the first one)
   showReferences: true,   // show the daily intake references ("Ref") everywhere
   updatedAt: 0,
 };
 
 export function emptyDb() {
-  // `nutrients` holds only your settings per nutrient ({ unit, target, enabled });
+  // `nutrients` holds only your settings per nutrient ({ unit, target, goalType, enabled });
   // the nutrients themselves are defined in nutrients.js.
   return { schema: SCHEMA_VERSION, nutrients: {}, foods: {}, entries: {}, weights: {}, settings: { ...DEFAULT_SETTINGS } };
 }
 
 /** Whether the daily intake references are shown (Settings switch, on by default). */
-export const showsReferences = (settings) => settings.showReferences ?? !settings.hideReferences;
+export const showsReferences = (settings) => settings.showReferences !== false;
 
 // Bring any stored or downloaded document up to the current shape.
 export function normalizeDb(raw) {

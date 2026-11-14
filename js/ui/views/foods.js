@@ -45,6 +45,6 @@ export function renderFoods({ ui, go }) {
         h('button', { class: 'btn btn-primary btn-small', type: 'button', onClick: create }, icon('plus', 16), newLabel)) : null),
     segmented(KIND_ORDER.map((k) => ({ value: k, label: KINDS[k].plural })), ui.foodKind,
       (v) => go({ foodKind: v, foodQuery: '' }), { label: t('foods.kind') }),
-    all.length > 5 ? h('div', { class: 'search-wrap' }, icon('search', 18), search) : null,
+    all.length ? h('div', { class: 'search-wrap' }, icon('search', 18), search) : null,
     list);
 }

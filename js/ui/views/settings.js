@@ -153,8 +153,9 @@ function weightSection(db) {
   const kg = currentWeightKg(db);
   const last = weighIns(db).pop();
 
+  // Typed weight: always without weigh-ins, and with them until the first one.
   let body;
-  if (mode === 'manual') {
+  if (mode === 'manual' || !last) {
     const box = numberField({
       value: kg ? inputStr(toWeightUnit(kg, unit), 1) : '', placeholder: t('settings.notSet'), suffix: unit, label: t('settings.yourWeight'),
     });
@@ -165,12 +166,12 @@ function weightSection(db) {
       store.setSettings({ weightKg: Number(fromWeightUnit(v, unit).toFixed(3)) });
     });
     box.input.addEventListener('keydown', (e) => { if (e.key === 'Enter') box.input.blur(); });
-    body = field(t('settings.yourWeight'), box.el, t('settings.weightUse'));
+    body = field(t('settings.yourWeight'), box.el, t(mode === 'manual' ? 'settings.weightUse' : 'settings.weightUntilWeighIn'));
   } else {
     body = h('div', { class: 'field' },
       h('div', { class: 'field-label' }, t('settings.yourWeight')),
-      h('div', { class: 'weight-readout' }, kg ? `${num(toWeightUnit(kg, unit), 1)} ${unit}` : t('settings.noWeighIns')),
-      h('div', { class: 'field-hint' }, last ? t('settings.latestWeighIn', { date: fmt(last.date, { day: 'numeric', month: 'long' }) }) : t('settings.logOnDay')));
+      h('div', { class: 'weight-readout' }, `${num(toWeightUnit(last.kg, unit), 1)} ${unit}`),
+      h('div', { class: 'field-hint' }, t('settings.latestWeighIn', { date: fmt(last.date, { day: 'numeric', month: 'long' }) })));
   }
 
   return h('section', {},
@@ -179,8 +180,8 @@ function weightSection(db) {
       h('div', { class: 'switch-line' },
         h('div', {}, h('div', { class: 'switch-text' }, t('settings.weighIns')), h('div', { class: 'switch-sub' }, t('settings.weighInsHint'))),
         toggle(mode === 'weighins', (on) => {
-          // Switching to manual starts from your latest weigh-in, so nothing jumps.
-          store.setSettings(on ? { weightMode: 'weighins' } : { weightMode: 'manual', weightKg: db.settings.weightKg || kg || null });
+          // Switching to manual starts from your current weight (latest weigh-in), so nothing jumps.
+          store.setSettings(on ? { weightMode: 'weighins' } : { weightMode: 'manual', weightKg: kg || null });
         }, { label: t('settings.weighIns') })),
       body,
       field(t('editor.unit'), segmented(WEIGHT_UNITS.map((u) => ({ value: u, label: u })), unit, (u) => store.setSettings({ weightUnit: u }), { label: t('settings.weightUnit') }))));

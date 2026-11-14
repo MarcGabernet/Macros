@@ -118,7 +118,7 @@ export function resolveNutrients(prefs = {}, { weightKg = null } = {}) {
       ...def,
       unit: def.units.includes(pref.unit) ? pref.unit : def.unit,
       target: Number(pref.target) > 0 ? Number(pref.target) : null, // the goal amount, stored in base unit
-      goalType: pref.goalType === 'limit' ? 'limit' : 'target',     // older data has no goalType: a target
+      goalType: pref.goalType === 'limit' ? 'limit' : 'target',     // no goal type set: a target
       selfEnabled: selfOn,
       enabled: selfOn && parentOn,
       depth: parent ? 1 : 0,
