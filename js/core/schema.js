@@ -14,7 +14,8 @@ export const SCHEMA_VERSION = 1;
 // Collections of records keyed by id. Every record carries `updatedAt`, and a
 // deleted one stays as a tombstone (`deleted: true`) so devices can merge.
 // `weights` holds weigh-ins, one per day, keyed by date (YYYY-MM-DD).
-export const COLLECTIONS = ['nutrients', 'foods', 'entries', 'weights'];
+// `categories` holds the categories of products (see categories.js).
+export const COLLECTIONS = ['nutrients', 'foods', 'entries', 'weights', 'categories'];
 
 // "Food" is the general word for what you log. There are two kinds:
 // - a product (stored with the id 'ingredient'): its own typed values;
@@ -49,7 +50,7 @@ export const DEFAULT_SETTINGS = {
 export function emptyDb() {
   // `nutrients` holds only your settings per nutrient ({ unit, target, goalType, enabled });
   // the nutrients themselves are defined in nutrients.js.
-  return { schema: SCHEMA_VERSION, nutrients: {}, foods: {}, entries: {}, weights: {}, settings: { ...DEFAULT_SETTINGS } };
+  return { schema: SCHEMA_VERSION, nutrients: {}, foods: {}, entries: {}, weights: {}, categories: {}, settings: { ...DEFAULT_SETTINGS } };
 }
 
 /** Whether the daily intake references are shown (Settings switch, on by default). */

@@ -11,6 +11,7 @@ import {
 import { parseNum, inputStr, num, amountLabel, withUnit } from '../../core/format.js';
 import { GROUPS, toDisplay, fromDisplay, isEnergy, ofWhich } from '../../core/nutrients.js';
 import { pictureField, photoFromUrl } from '../picture.js';
+import { categories, categoryLabel, categoryOf } from '../../core/categories.js';
 import {
   activeNutrients, segmented, numberField, field, macroLine, dot, openFoodPicker, openAmountSheet,
 } from '../components.js';
@@ -21,7 +22,7 @@ import { t } from '../../texts.js';
  * `food`: an existing food to edit. Otherwise a new one of `kind`, optionally
  * pre-filled from `initial` (e.g. a scanned product: { name, unit, values, barcode, imageUrl, sourceNote }).
  */
-export function openFoodEditor({ food, kind, initialName = '', initial = null, onSaved } = {}) {
+export function openFoodEditor({ food, kind, initialName = '', initial = null, categoryId = null, onSaved } = {}) {
   const k = food?.kind || initial?.kind || kind;
   // Where the form's starting values come from: the food being edited, or the pre-fill.
   const src = food || (initial ? { source: 'direct', ...initial } : null);
@@ -38,6 +39,7 @@ export function openFoodEditor({ food, kind, initialName = '', initial = null, o
     unitG: src?.unit?.type === 'mass' ? inputStr(src.unit.pieceGrams) : inputStr(src?.unit?.grams),
     mode: src?.inputMode ?? 'amount', // 'amount' | 'percent': how values are typed
     barcode: src?.barcode ?? '',
+    categoryId: (food ? categoryOf(food)?.id : categoryId) || '', // products only; '' = no category
     image: src?.image ?? null, // { kind: 'photo', data } | { kind: 'emoji', value } | null
     inputs: {},
     components: (src?.components ?? []).map((c) => ({ foodId: c.foodId, amount: { ...c.amount } })),
@@ -79,6 +81,7 @@ export function openFoodEditor({ food, kind, initialName = '', initial = null, o
     // A barcode, so scanning it again finds this food (products only).
     const code = k === 'ingredient' ? draft.barcode.replace(/\D/g, '') : '';
     if (code) base.barcode = code; else delete base.barcode;
+    if (k === 'ingredient' && draft.categoryId) base.categoryId = draft.categoryId; else delete base.categoryId;
     if (draft.image) base.image = draft.image; else delete base.image;
     if (built) {
       return {
@@ -143,6 +146,13 @@ export function openFoodEditor({ food, kind, initialName = '', initial = null, o
       picture.paint();
     });
   }
+  const categorySelect = h('select', {
+    class: 'input', 'aria-label': t('editor.category'),
+    onChange: () => { draft.categoryId = categorySelect.value; },
+  },
+  h('option', { value: '' }, t('category.none')),
+  categories().map((c) => h('option', { value: c.id }, categoryLabel(c))));
+  categorySelect.value = draft.categoryId;
   const barcodeInput = h('input', {
     class: 'input', type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: t('common.none'),
     'aria-label': t('editor.barcode'), value: draft.barcode,
@@ -307,6 +317,7 @@ export function openFoodEditor({ food, kind, initialName = '', initial = null, o
       initial?.sourceNote ? h('div', { class: 'notice notice-info' }, icon('alert', 16), initial.sourceNote) : null,
       field(t('editor.picture'), picture.el),
       field(t('editor.name'), nameInput),
+      k === 'ingredient' ? field(t('editor.category'), categorySelect) : null,
       k === 'ingredient' ? field(t('editor.barcode'), barcodeInput, t('editor.barcodeHint')) : null,
       ...(built ? componentsSection() : [unitSection(), valuesSection()]),
       food ? h('button', { class: 'btn btn-danger-ghost btn-block', type: 'button', onClick: remove }, icon('trash', 16), t(`kind.${k}.delete`)) : null);

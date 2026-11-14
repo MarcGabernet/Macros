@@ -1,5 +1,5 @@
 // Settings: a menu of pages. General (language, theme), Data (nutrients, goals,
-// daily references, body weight) and Account (Google Drive).
+// daily references, body weight, categories) and Account (Google Drive).
 
 import { h, icon, openSheet, confirmSheet, add, fill } from '../dom.js';
 import { store } from '../../core/store.js';
@@ -13,6 +13,8 @@ import { sync } from '../../sync/engine.js';
 import { redirectUri } from '../../sync/google.js';
 import { APP_VERSION } from '../../config.js';
 import { THEMES, getTheme, setTheme } from '../theme.js';
+import { categories, categoryName, categoryOf } from '../../core/categories.js';
+import { openEmojiPicker } from '../picture.js';
 import { t, LANGUAGES, getLanguage, setLanguage } from '../../texts.js';
 
 /** An on/off switch. */
@@ -187,6 +189,75 @@ function weightSection(db) {
       field(t('editor.unit'), segmented(WEIGHT_UNITS.map((u) => ({ value: u, label: u })), unit, (u) => store.setSettings({ weightUnit: u }), { label: t('settings.weightUnit') }))));
 }
 
+/** Create (no `cat`) or edit a category: its name and emoji. */
+function openCategoryEditor(cat) {
+  const defaultName = cat && !cat.name ? categoryName(cat) : null; // a default category not yet renamed
+  const draft = { name: cat ? categoryName(cat) : '', emoji: cat?.emoji || '' };
+  const sheet = openSheet({ title: t(cat ? 'category.edit' : 'category.new') });
+  const error = h('div', { class: 'form-error', role: 'alert' });
+  const nameInput = h('input', {
+    class: 'input', type: 'text', autocomplete: 'off', autocapitalize: 'sentences', 'aria-label': t('category.name'),
+    placeholder: t('category.example'), value: draft.name, onInput: () => { draft.name = nameInput.value; },
+  });
+  const emojiArea = h('div', { class: 'emoji-choice' });
+  const paintEmoji = () => fill(emojiArea,
+    h('button', { class: 'emoji-btn', type: 'button', 'aria-label': t('picture.chooseEmoji'), onClick: () => openEmojiPicker((e) => { draft.emoji = e; paintEmoji(); }) },
+      draft.emoji || icon('smile', 22)),
+    draft.emoji ? h('button', { class: 'btn btn-small', type: 'button', onClick: () => { draft.emoji = ''; paintEmoji(); } }, t('category.noEmoji')) : null);
+  paintEmoji();
+
+  function save() {
+    const name = draft.name.trim();
+    if (!name) { error.textContent = t('category.needName'); return; }
+    const same = categories().find((c) => c.id !== cat?.id && categoryName(c).toLocaleLowerCase() === name.toLocaleLowerCase());
+    if (same) { error.textContent = t('category.nameTaken', { name: categoryName(same) }); return; }
+    const order = cat ? cat.order : Math.max(-1, ...categories().map((c) => c.order ?? 0)) + 1;
+    // A default category keeps following the app's language until it is really renamed.
+    store.put('categories', { ...(cat || {}), name: name === defaultName ? null : name, emoji: draft.emoji || null, order });
+    sheet.close();
+  }
+
+  async function remove() {
+    const n = store.all('foods').filter((f) => categoryOf(f)?.id === cat.id).length;
+    const ok = await confirmSheet({
+      title: t('category.deleteTitle', { name: categoryName(cat) }),
+      message: n ? t('category.deleteUsed', { n }) : t('category.deleteUnused'),
+    });
+    if (!ok) return;
+    store.remove('categories', cat.id);
+    sheet.close();
+  }
+
+  add(sheet.body, h('div', { class: 'form' },
+    field(t('category.name'), nameInput),
+    field(t('category.emoji'), emojiArea),
+    cat ? h('button', { class: 'btn btn-danger-ghost btn-block', type: 'button', onClick: remove }, icon('trash', 16), t('category.delete')) : null));
+  sheet.foot.append(error, h('button', { class: 'btn btn-primary btn-block', type: 'button', onClick: save }, cat ? t('common.save') : t('category.create')));
+  if (!cat) nameInput.focus();
+}
+
+function categoriesSection(db) {
+  const list = categories(db);
+  const counts = new Map();
+  for (const f of store.all('foods')) {
+    const c = categoryOf(f, db);
+    if (c) counts.set(c.id, (counts.get(c.id) || 0) + 1);
+  }
+  return h('section', {},
+    h('div', { class: 'section-head' }, h('h2', {}, t('settings.categories'))),
+    list.length
+      ? h('div', { class: 'card list' }, list.map((c) => h('div', { class: 'row-wrap' },
+        h('button', { class: 'row', type: 'button', onClick: () => openCategoryEditor(c) },
+          h('span', { class: 'cat-emoji' }, c.emoji || ''),
+          h('div', { class: 'row-main' },
+            h('div', { class: 'row-title' }, categoryName(c)),
+            h('div', { class: 'row-sub' }, t('category.count', { n: counts.get(c.id) || 0 }))),
+          h('span', { class: 'chevron' }, icon('right', 18))))))
+      : null,
+    h('button', { class: 'btn btn-block', type: 'button', onClick: () => openCategoryEditor() }, icon('plus', 16), t('category.new')),
+    h('p', { class: 'section-note' }, t('settings.categoriesNote')));
+}
+
 function syncCard() {
   const s = sync.status();
   if (!s.configured) {
@@ -263,7 +334,7 @@ const PAGES = [
   },
   {
     id: 'data', title: () => t('settings.data'), icon: 'foods',
-    render: (db) => [nutrientsSection(db), referencesSection(db), weightSection(db)],
+    render: (db) => [nutrientsSection(db), referencesSection(db), weightSection(db), categoriesSection(db)],
   },
   {
     id: 'account', title: () => t('settings.account'), icon: 'cloud',

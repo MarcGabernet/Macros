@@ -12,13 +12,22 @@ import { t } from '../texts.js';
 const PHOTO_SIZE = 256;      // px, square
 const PHOTO_QUALITY = 0.78;
 
-// The emojis to pick from.
-export const FOOD_EMOJIS = [
-  '🍎', '🍌', '🍊', '🍓', '🍇', '🍐', '🍑', '🍍', '🥝', '🥑', '🍅', '🥕',
-  '🥦', '🥬', '🥒', '🌽', '🥔', '🧅', '🍄', '🥜', '🌰', '🫘', '🍞', '🥐',
-  '🥖', '🥯', '🧀', '🥚', '🍳', '🥓', '🥩', '🍗', '🍖', '🐟', '🦐', '🍤',
-  '🍚', '🍝', '🍜', '🍲', '🥗', '🍕', '🍔', '🌮', '🌯', '🥪', '🥣', '🥛',
-  '🧈', '🍯', '🍫', '🍪', '🍰', '🍦', '☕', '🍵', '🧃', '🥤', '🍷', '🍺',
+// The emojis to pick from, in sections (titles in texts.js: emoji.<id>).
+// Animals stand for their meat. A few need a recent iPhone (🍋‍🟩 🍄‍🟫 from
+// iOS 17.4, 🫜 from iOS 18.4); older ones show a blank box.
+// There is no yogurt emoji (as of Unicode 18).
+export const EMOJI_GROUPS = [
+  { id: 'fruit', emojis: ['🍎', '🍏', '🍐', '🍊', '🍋', '🍋‍🟩', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🥑', '🫒'] },
+  { id: 'vegetables', emojis: ['🍅', '🍆', '🥔', '🍠', '🥕', '🌽', '🌶️', '🫑', '🥒', '🥬', '🥦', '🧄', '🧅', '🫚', '🫛', '🫜', '🍄', '🍄‍🟫', '🫘', '🥜', '🌰'] },
+  { id: 'cereals', emojis: ['🌾', '🍞', '🥐', '🥖', '🫓', '🥨', '🥯', '🥞', '🧇', '🍚', '🍝'] },
+  { id: 'dairy', emojis: ['🥛', '🧀', '🧈', '🥚', '🍳'] },
+  { id: 'meat', emojis: ['🍖', '🍗', '🥩', '🥓', '🐄', '🐖', '🐔', '🦃', '🐑', '🐇'] },
+  { id: 'fish', emojis: ['🐟', '🦐', '🍤', '🦀', '🦞', '🦑', '🐙', '🦪'] },
+  { id: 'dishes', emojis: ['🍜', '🍲', '🥘', '🫕', '🥗', '🥣', '🥫', '🧂'] },
+  { id: 'fastFood', emojis: ['🍕', '🍔', '🌭', '🍟', '🥪', '🌮', '🌯', '🫔', '🥙', '🧆'] },
+  { id: 'asian', emojis: ['🍣', '🍱', '🍙', '🍘', '🍛', '🥟', '🍢', '🍡', '🍥', '🥮', '🥠'] },
+  { id: 'sweets', emojis: ['🍯', '🍫', '🍬', '🍭', '🍪', '🍩', '🍰', '🎂', '🧁', '🥧', '🍮', '🍦', '🍨', '🍧'] },
+  { id: 'drinks', emojis: ['☕', '🍵', '🫖', '🧋', '🧉', '🧃', '🥤', '🍷', '🍺', '🍻', '🥂', '🍾', '🍸', '🍹', '🥃', '🍶'] },
 ];
 
 /** Turn any picture (file, blob or image element) into a small square JPEG data URL. */
@@ -62,11 +71,13 @@ export function avatar(food, size = 40) {
 }
 
 /** Choose an emoji from a grid. */
-function openEmojiPicker(onPick) {
+export function openEmojiPicker(onPick) {
   const sheet = openSheet({ title: t('picture.chooseEmoji') });
-  sheet.body.append(h('div', { class: 'emoji-grid' }, FOOD_EMOJIS.map((e) => h('button', {
-    class: 'emoji-btn', type: 'button', 'aria-label': e, onClick: () => { sheet.close(); onPick(e); },
-  }, e))));
+  sheet.body.append(...EMOJI_GROUPS.map((g) => h('section', { class: 'emoji-group' },
+    h('div', { class: 'value-group' }, t(`emoji.${g.id}`)),
+    h('div', { class: 'emoji-grid' }, g.emojis.map((e) => h('button', {
+      class: 'emoji-btn', type: 'button', 'aria-label': e, onClick: () => { sheet.close(); onPick(e); },
+    }, e))))));
 }
 
 /**

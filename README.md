@@ -5,11 +5,15 @@ home screen. No build step, no dependencies: plain HTML, CSS and JavaScript.
 
 ## What it does
 
-- **Foods** come in three kinds. In the code they are all one thing, a *food*,
+- **Foods** come in two kinds. In the code they are both one thing, a *food*,
   that differs only in what it may be made of:
   - **Product**: has its own values (typed, or filled in by scanning). Names and
     barcodes are unique.
   - **Meal**: built from products only. Never from meals, never typed directly.
+- **Categories** of products (fruit, vegetables, ...): each product can have
+  one, and Foods filters by them. The list is edited in Settings > Data
+  (`js/core/categories.js`); the default ones follow the app's language until
+  renamed.
 - **One unit** of a food is either a weight (for example 100 g) or one piece
   (1 egg), optionally with a weight. Values are typed as amounts, or as a
   percentage of the unit when the unit has a weight.

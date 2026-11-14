@@ -75,6 +75,24 @@ export function icon(name, size = 22) {
   return span;
 }
 
+// While any sheet is open the page behind it stays put. iPhone Safari scrolls the
+// page under a modal dialog, so the page is pinned in place (position: fixed at
+// its scroll offset) and put back where it was when the last sheet closes.
+let openSheets = 0;
+let pinnedY = 0;
+function pinPage() {
+  if (openSheets++ > 0) return;
+  pinnedY = window.scrollY;
+  document.body.style.top = `-${pinnedY}px`;
+  document.body.classList.add('pinned');
+}
+function unpinPage() {
+  if (--openSheets > 0) return;
+  document.body.classList.remove('pinned');
+  document.body.style.top = '';
+  window.scrollTo(0, pinnedY);
+}
+
 /**
  * A sheet that slides up from the bottom (a centred panel on wide screens).
  * Returns { el, body, foot, close }. Fill `body` and `foot` yourself.
@@ -91,6 +109,7 @@ export function openSheet({ title, onClose } = {}) {
     closed = true;
     if (dlg.open) dlg.close();
     dlg.remove();
+    unpinPage();
     onClose?.();
   };
   const dlg = h('dialog', { class: 'sheet' },
@@ -102,6 +121,7 @@ export function openSheet({ title, onClose } = {}) {
   dlg.addEventListener('click', (e) => { if (e.target === dlg) close(); });
   dlg.addEventListener('close', close); // closed by the Escape key
   document.body.append(dlg);
+  pinPage();
   dlg.showModal();
   return { el: dlg, body, foot, close, setTitle: (text) => { titleEl.textContent = text; } };
 }

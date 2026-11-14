@@ -10,4 +10,4 @@ export const GOOGLE_CLIENT_ID = '989027319635-5cmbkqf4qe5kupg7clh8t3vkn8dlvuca.a
 export const DRIVE_FILE_NAME = 'macros.json';
 
 // Shown at the bottom of Settings.
-export const APP_VERSION = '0.5.2';
+export const APP_VERSION = '0.6.0';

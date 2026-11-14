@@ -4,6 +4,7 @@ import { h, icon, trackKeyboard } from './ui/dom.js';
 import { store } from './core/store.js';
 import { today } from './core/dates.js';
 import { clampDay } from './core/days.js';
+import { seedCategories } from './core/categories.js';
 import { sync } from './sync/engine.js';
 import { renderDay, logFood } from './ui/views/day.js';
 import { openScanner } from './ui/views/scanner.js';
@@ -28,6 +29,7 @@ const ui = {
   calDate: today(),
   foodKind: 'ingredient',
   foodQuery: '',
+  foodCategory: 'all', // Foods filter: 'all' | 'none' (no category) | a category id
   settingsPage: null, // null: the Settings menu; 'general' | 'data' | 'account': one of its pages
 };
 
@@ -90,6 +92,9 @@ function start() {
 
   root.replaceChildren(bannerEl, viewEl, tabBar);
   trackKeyboard();
+  // The default categories, the first time (also after data replaced by one without any).
+  seedCategories();
+  store.subscribe(seedCategories);
   store.subscribe(render);
   onLanguageChange(render);
   sync.subscribe(() => { renderBanner(); if (ui.tab === 'settings') render(); });

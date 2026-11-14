@@ -65,6 +65,17 @@ export const store = {
   },
 
   /**
+   * Add records that aren't there yet, stamped as the oldest possible change
+   * (updatedAt 0), so any real change from another device wins over them.
+   */
+  seed(collection, records) {
+    for (const r of records) {
+      if (!db[collection][r.id]) db[collection][r.id] = { ...r, createdAt: 0, updatedAt: 0 };
+    }
+    commit(true);
+  },
+
+  /**
    * Delete a record. Foods and nutrients keep their contents (hidden), so days
    * already logged with them still add up; log entries shrink to a marker.
    */
