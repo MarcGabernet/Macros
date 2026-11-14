@@ -10,6 +10,7 @@ import {
 } from '../core/calc.js';
 import { nutrientNum, withUnit, unitLabel, amountSuffix, parseNum, inputStr, pieceName } from '../core/format.js';
 import { openFoodEditor } from './views/foodEditor.js';
+import { openScanner } from './views/scanner.js';
 import { avatar } from './picture.js';
 import { t } from '../texts.js';
 
@@ -327,11 +328,18 @@ export function openFoodPicker({ title = t('picker.title'), kinds = KIND_ORDER, 
         (v) => { filter = v; renderList(); }, { small: true, label: t('foods.kind') })
       : null,
     list);
+  // New product · Scan · New meal. A scanned product is picked like any other.
+  const picked = (food) => { renderList(); onPick(food, sheet); };
   sheet.foot.append(h('div', { class: 'btn-row wrap' },
-    kinds.map((k) => h('button', {
-      class: 'btn', type: 'button',
-      onClick: () => openFoodEditor({ kind: k, initialName: search.value.trim(), onSaved: (food) => { renderList(); onPick(food, sheet); } }),
-    }, icon('plus', 16), t(`kind.${k}.new`)))));
+    kinds.map((k) => [
+      h('button', {
+        class: 'btn', type: 'button',
+        onClick: () => openFoodEditor({ kind: k, initialName: search.value.trim(), onSaved: picked }),
+      }, icon('plus', 16), t(`kind.${k}.new`)),
+      k === 'ingredient'
+        ? h('button', { class: 'btn', type: 'button', onClick: () => openScanner({ onFood: picked }) }, icon('camera', 16), t('picker.scan'))
+        : null,
+    ])));
   renderList();
   return sheet;
 }

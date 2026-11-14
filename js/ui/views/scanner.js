@@ -97,11 +97,16 @@ async function readPhoto(file) {
   return null;
 }
 
-/** What happens with a barcode: your own ingredient if you have it, else Open Food Facts. */
-async function handleBarcode(code, { close, setStatus }) {
+/**
+ * What happens with a barcode: your own product if you have it, else Open Food Facts.
+ * With `onFood` (scanning to log), the product found or saved is handed to it;
+ * without, your own product opens in the editor.
+ */
+async function handleBarcode(code, { close, setStatus, onFood }) {
   const mine = store.all('foods').find((f) => f.barcode && toLookupCode(f.barcode) === code);
   if (mine) {
     close();
+    if (onFood) { onFood(mine); return; }
     toast(t('scan.alreadyYours'));
     openFoodEditor({ food: mine });
     return;
@@ -115,7 +120,7 @@ async function handleBarcode(code, { close, setStatus }) {
     return false;
   }
   close();
-  const onSaved = () => toast(t('scan.saved'));
+  const onSaved = (food) => { toast(t('scan.saved')); onFood?.(food); };
   const base = { kind: 'ingredient', barcode: code, unit: { type: 'mass', grams: 100 }, imageUrl: product?.imageUrl || null };
   if (!product || !product.nutrientCount) {
     openFoodEditor({
@@ -138,7 +143,8 @@ async function handleBarcode(code, { close, setStatus }) {
   });
 }
 
-export function openScanner() {
+/** Scan a product's barcode. `onFood(food)`: what to do with the product (e.g. log it). */
+export function openScanner({ onFood } = {}) {
   let stream = null;
   let timer = null;
   let busy = false;
@@ -178,7 +184,7 @@ export function openScanner() {
     if (done) return;
     stop();
     navigator.vibrate?.(40);
-    const result = await handleBarcode(code, { close, setStatus });
+    const result = await handleBarcode(code, { close, setStatus, onFood });
     // Lookup failed: keep its message on screen, and keep scanning if the camera works.
     if (result === false && !done && cameraOk) start({ keepStatus: true });
   }

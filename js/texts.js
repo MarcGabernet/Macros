@@ -234,6 +234,7 @@ const TEXTS = {
   'picker.tryOrCreate': { en: 'Try another name, or create it below', ca: 'Prova un altre nom, o crea’l a sota', es: 'Prueba otro nombre, o créalo abajo' },
   'picker.createFirst': { en: 'Create your first one below', ca: 'Crea el primer a sota', es: 'Crea el primero abajo' },
   'picker.all': { en: 'All', ca: 'Tots', es: 'Todos' },
+  'picker.scan': { en: 'Scan', ca: 'Escaneja', es: 'Escanear' },
   'amount.label': { en: 'Amount', ca: 'Quantitat', es: 'Cantidad' },
   'amount.enter': { en: 'Enter an amount', ca: 'Introdueix una quantitat', es: 'Introduce una cantidad' },
   'amount.measureIn': { en: 'Measure in', ca: 'Mesura en', es: 'Medir en' },

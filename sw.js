@@ -3,7 +3,7 @@
 // Every file is fetched from the network first (so an update shows up the next
 // time the app is opened) and a copy is kept; offline, the kept copy is used.
 
-const CACHE = 'macros-v13';
+const CACHE = 'macros-v14';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/main.js', 'js/config.js', 'js/texts.js',
