@@ -7,6 +7,7 @@
 // travel with the Drive file like everything else.
 
 import { h, icon, openSheet } from './dom.js';
+import { t } from '../i18n.js';
 
 const PHOTO_SIZE = 256;      // px, square
 const PHOTO_QUALITY = 0.78;
@@ -62,7 +63,7 @@ export function avatar(food, size = 40) {
 
 /** Choose an emoji from a grid. */
 function openEmojiPicker(onPick) {
-  const sheet = openSheet({ title: 'Choose an emoji' });
+  const sheet = openSheet({ title: t('picture.chooseEmoji') });
   sheet.body.append(h('div', { class: 'emoji-grid' }, FOOD_EMOJIS.map((e) => h('button', {
     class: 'emoji-btn', type: 'button', 'aria-label': e, onClick: () => { sheet.close(); onPick(e); },
   }, e))));
@@ -78,7 +79,7 @@ export function pictureField({ get, onChange, getName }) {
   const libInput = h('input', { type: 'file', accept: 'image/*', hidden: true });
   const preview = h('div', { class: 'picture-preview' });
   const note = h('div', { class: 'field-hint' });
-  const removeBtn = h('button', { class: 'pic-btn pic-remove', type: 'button', 'aria-label': 'Remove picture', title: 'Remove picture', onClick: () => { onChange(null); paint(); } }, icon('trash', 20));
+  const removeBtn = h('button', { class: 'pic-btn pic-remove', type: 'button', 'aria-label': t('picture.remove'), title: t('picture.remove'), onClick: () => { onChange(null); paint(); } }, icon('trash', 20));
 
   function paint() {
     preview.replaceChildren(avatar({ image: get(), name: getName() }, 72));
@@ -89,12 +90,12 @@ export function pictureField({ get, onChange, getName }) {
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
-    note.textContent = 'Preparing the photo…';
+    note.textContent = t('picture.preparing');
     try {
       onChange({ kind: 'photo', data: await toPhotoData(file) });
       note.textContent = '';
     } catch {
-      note.textContent = 'That picture couldn’t be used';
+      note.textContent = t('picture.failed');
     }
     paint();
   }
@@ -105,12 +106,12 @@ export function pictureField({ get, onChange, getName }) {
     preview,
     h('div', { class: 'picture-actions' },
       h('div', { class: 'pic-buttons' },
-        h('button', { class: 'pic-btn', type: 'button', 'aria-label': 'Take a photo', title: 'Take a photo', onClick: () => camInput.click() }, icon('camera', 20)),
-        h('button', { class: 'pic-btn', type: 'button', 'aria-label': 'Choose from library', title: 'Choose from library', onClick: () => libInput.click() }, icon('image', 20)),
-        h('button', { class: 'pic-btn', type: 'button', 'aria-label': 'Choose an emoji', title: 'Choose an emoji', onClick: () => openEmojiPicker((e) => { onChange({ kind: 'emoji', value: e }); paint(); }) }, icon('smile', 20)),
+        h('button', { class: 'pic-btn', type: 'button', 'aria-label': t('picture.takePhoto'), title: t('picture.takePhoto'), onClick: () => camInput.click() }, icon('camera', 20)),
+        h('button', { class: 'pic-btn', type: 'button', 'aria-label': t('picture.library'), title: t('picture.library'), onClick: () => libInput.click() }, icon('image', 20)),
+        h('button', { class: 'pic-btn', type: 'button', 'aria-label': t('picture.chooseEmoji'), title: t('picture.chooseEmoji'), onClick: () => openEmojiPicker((e) => { onChange({ kind: 'emoji', value: e }); paint(); }) }, icon('smile', 20)),
         removeBtn),
       note),
     camInput, libInput);
   paint();
-  return { el, paint, setNote: (t) => { note.textContent = t; } };
+  return { el, paint, setNote: (text) => { note.textContent = text; } };
 }

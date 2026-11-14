@@ -5,12 +5,13 @@ import { store } from '../../core/store.js';
 import { KINDS, KIND_ORDER } from '../../core/schema.js';
 import { activeNutrients, segmented, foodRow, emptyState } from '../components.js';
 import { openFoodEditor } from './foodEditor.js';
+import { t } from '../../i18n.js';
 
 export function renderFoods({ ui, go }) {
   const db = store.db;
   const nutrients = activeNutrients(db);
   const kind = KINDS[ui.foodKind];
-  const label = kind.label.toLowerCase();
+  const newLabel = t(`kind.${ui.foodKind}.new`);
   const all = store.all('foods').filter((f) => f.kind === ui.foodKind);
   const list = h('div', {});
 
@@ -20,9 +21,9 @@ export function renderFoods({ ui, go }) {
     list.replaceChildren(foods.length
       ? h('div', { class: 'card list' }, foods.map((f) => foodRow(f, db, nutrients, { onClick: () => openFoodEditor({ food: f }) })))
       : h('div', { class: 'card' }, all.length
-        ? emptyState('Nothing matches', 'Try another name')
-        : emptyState(`No ${kind.plural.toLowerCase()} yet`, kind.hint,
-          h('button', { class: 'btn btn-primary', type: 'button', onClick: create }, icon('plus', 16), `New ${label}`))));
+        ? emptyState(t('common.nothingMatches'), t('foods.tryAnother'))
+        : emptyState(t(`kind.${ui.foodKind}.none`), kind.hint,
+          h('button', { class: 'btn btn-primary', type: 'button', onClick: create }, icon('plus', 16), newLabel))));
   }
 
   function create() {
@@ -31,19 +32,19 @@ export function renderFoods({ ui, go }) {
 
   // Typing in the search box updates only the list, so the keyboard stays open.
   const search = h('input', {
-    class: 'input search-input', type: 'search', placeholder: `Search ${kind.plural.toLowerCase()}`, autocomplete: 'off',
-    'aria-label': `Search ${kind.plural.toLowerCase()}`, value: ui.foodQuery,
+    class: 'input search-input', type: 'search', placeholder: t(`kind.${ui.foodKind}.search`), autocomplete: 'off',
+    'aria-label': t(`kind.${ui.foodKind}.search`), value: ui.foodQuery,
     onInput: () => { ui.foodQuery = search.value; renderList(); },
   });
 
   renderList();
   return h('div', { class: 'view' },
     h('header', { class: 'view-head' },
-      h('div', {}, h('h1', {}, 'Foods'), h('div', { class: 'view-sub' }, kind.hint)),
+      h('div', {}, h('h1', {}, t('tab.foods')), h('div', { class: 'view-sub' }, kind.hint)),
       all.length ? h('div', { class: 'head-actions' },
-        h('button', { class: 'btn btn-primary btn-small', type: 'button', onClick: create }, icon('plus', 16), `New ${label}`)) : null),
+        h('button', { class: 'btn btn-primary btn-small', type: 'button', onClick: create }, icon('plus', 16), newLabel)) : null),
     segmented(KIND_ORDER.map((k) => ({ value: k, label: KINDS[k].plural })), ui.foodKind,
-      (v) => go({ foodKind: v, foodQuery: '' }), { label: 'Kind of food' }),
+      (v) => go({ foodKind: v, foodQuery: '' }), { label: t('foods.kind') }),
     all.length > 5 ? h('div', { class: 'search-wrap' }, icon('search', 18), search) : null,
     list);
 }

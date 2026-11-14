@@ -6,6 +6,7 @@
 // worked out from its components every time.
 
 import { KINDS } from './schema.js';
+import { t } from '../i18n.js';
 
 const MAX_DEPTH = 4; // meal -> dish -> ingredient is 3 deep; this is only a safety net
 
@@ -116,9 +117,9 @@ export function foodIssues(food, foods) {
   const allowed = KINDS[food.kind]?.components ?? [];
   for (const c of food.components || []) {
     const part = foods[c.foodId];
-    if (!part) issues.push('A part of this food no longer exists');
-    else if (!allowed.includes(part.kind)) issues.push(`${part.name} can't be part of a ${food.kind}.`);
-    else if (amountFactor(part, c.amount, foods) == null) issues.push(`${part.name} needs a weight to be measured in grams`);
+    if (!part) issues.push(t('issue.missingPart'));
+    else if (!allowed.includes(part.kind)) issues.push(t('issue.notAllowed', { name: part.name }));
+    else if (amountFactor(part, c.amount, foods) == null) issues.push(t('issue.needsWeight', { name: part.name }));
   }
   return issues;
 }

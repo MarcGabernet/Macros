@@ -4,6 +4,7 @@ import { KINDS } from './schema.js';
 import { toDisplay, isEnergy } from './nutrients.js';
 import { LOCALE } from './dates.js';
 import { unitGrams, isComposite } from './calc.js';
+import { t } from '../i18n.js';
 
 /** Read a typed number; accepts a comma or a dot as the decimal mark. */
 export function parseNum(text) {
@@ -18,7 +19,7 @@ export function parseNum(text) {
 export function num(value, decimals = 1) {
   if (!Number.isFinite(value)) return '0';
   const d = Math.abs(value) >= 100 ? 0 : decimals;
-  return value.toLocaleString(LOCALE, { maximumFractionDigits: d });
+  return value.toLocaleString(LOCALE(), { maximumFractionDigits: d });
 }
 
 /** A number as it should appear inside an input box (no thousands separators). */
@@ -38,14 +39,14 @@ export const withUnit = (nutrient, value) => `${nutrientNum(nutrient, value)} ${
 
 /** What one unit of a food is called: "egg", "dish", "meal"... */
 export function pieceName(food) {
-  return food.unit?.name?.trim() || (food.kind === 'ingredient' ? 'unit' : KINDS[food.kind].label.toLowerCase());
+  return food.unit?.name?.trim() || t(`kind.${food.kind}.piece`);
 }
 
 /** "per 100 g", "per egg · 60 g", "whole dish · 450 g" */
 export function unitLabel(food, foods) {
-  if (food.unit?.type === 'mass') return `per ${num(Number(food.unit.grams), 1)} g`;
+  if (food.unit?.type === 'mass') return t('unit.perGrams', { g: num(Number(food.unit.grams), 1) });
   const grams = unitGrams(food, foods);
-  const head = isComposite(food) ? `whole ${pieceName(food)}` : `per ${pieceName(food)}`;
+  const head = isComposite(food) ? t(`kind.${food.kind}.whole`) : t('unit.perPiece', { piece: pieceName(food) });
   return grams ? `${head} · ${num(grams, 0)} g` : head;
 }
 
@@ -54,8 +55,8 @@ export function amountLabel(food, amount) {
   if (!amount) return '';
   const v = num(Number(amount.value), 2);
   if (amount.type === 'grams') return `${v} g`;
-  if (amount.type === 'percent') return `${v}% of ${food ? pieceName(food) : 'unit'}`;
-  return `${v} × ${food ? pieceName(food) : 'unit'}`;
+  if (amount.type === 'percent') return t('amount.percentOf', { v, piece: food ? pieceName(food) : t('kind.ingredient.piece') });
+  return `${v} × ${food ? pieceName(food) : t('kind.ingredient.piece')}`;
 }
 
 /** The suffix shown next to an amount input for a given amount type. */

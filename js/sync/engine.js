@@ -11,6 +11,7 @@ import { store } from '../core/store.js';
 import { mergeDbs } from '../core/merge.js';
 import { COLLECTIONS, normalizeDb } from '../core/schema.js';
 import { isConfigured, beginSignIn, consumeRedirect, drive, AuthError, OfflineError } from './google.js';
+import { t } from '../i18n.js';
 
 const META_KEY = 'macros.sync'; // this device's sync state; never uploaded
 const SAVE_DELAY = 2500;        // wait this long after a change before uploading
@@ -58,8 +59,7 @@ function hasContent(db) {
 
 /** "4 foods · 12 logged items · 3 weigh-ins" */
 function describe(db) {
-  const n = (c, one, many) => { const k = live(db, c); return `${k} ${k === 1 ? one : many}`; };
-  return [n('foods', 'food', 'foods'), n('entries', 'logged item', 'logged items'), n('weights', 'weigh-in', 'weigh-ins')].join(' · ');
+  return [t('sync.count.foods', { n: live(db, 'foods') }), t('sync.count.entries', { n: live(db, 'entries') }), t('sync.count.weights', { n: live(db, 'weights') })].join(' · ');
 }
 
 class NeedsChoice extends Error {}
@@ -120,8 +120,8 @@ export const sync = {
       saveMeta({ enabled: true, token: back.token, expiresAt: back.expiresAt, silentFailed: false, firstSync: !meta.enabled });
     } else if (back?.error) {
       saveMeta({ silentFailed: true, token: null, expiresAt: 0 });
-      if (back.error === 'drive_not_granted') message = 'Google Drive access was not allowed. Connect again and tick the Drive box on Google’s screen';
-      else if (!back.silent) message = 'Google sign-in was not completed';
+      if (back.error === 'drive_not_granted') message = t('sync.driveNotGranted');
+      else if (!back.silent) message = t('sync.signInIncomplete');
     }
 
     store.subscribe(({ local }) => {
@@ -230,7 +230,7 @@ export const sync = {
       if (err instanceof NeedsChoice) setState('choose');
       else if (err instanceof AuthError) { saveMeta({ token: null, expiresAt: 0 }); setState('needs-auth', err.message); }
       else if (err instanceof OfflineError) setState('offline', err.message);
-      else { console.error('Sync failed', err); setState('error', err.message || 'Sync failed'); }
+      else { console.error('Sync failed', err); setState('error', err.message || t('sync.failed')); }
     } finally {
       running = false;
       if (again) { again = false; schedule(500); }

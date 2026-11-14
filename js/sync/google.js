@@ -7,6 +7,7 @@
 // access token (about an hour) in the address, which is then removed.
 
 import { GOOGLE_CLIENT_ID, DRIVE_FILE_NAME } from '../config.js';
+import { t } from '../i18n.js';
 
 const AUTH = 'https://accounts.google.com/o/oauth2/v2/auth';
 const FILES = 'https://www.googleapis.com/drive/v3/files';
@@ -74,13 +75,13 @@ async function call(token, method, url, { params, headers, body } = {}) {
   try {
     res = await fetch(full, { method, headers: { Authorization: `Bearer ${token}`, ...headers }, body });
   } catch (err) {
-    throw new OfflineError('No connection to Google Drive');
+    throw new OfflineError(t('sync.noConnection'));
   }
-  if (res.status === 401) throw new AuthError('Your Google session has expired');
+  if (res.status === 401) throw new AuthError(t('sync.expired'));
   if (res.status === 403 && /insufficient/i.test(await res.clone().text())) {
-    throw new AuthError('Macros was not allowed to use Google Drive. Reconnect and tick the Drive box');
+    throw new AuthError(t('sync.notAllowed'));
   }
-  if (!res.ok) throw new SyncError(`Google Drive responded with an error (${res.status})`);
+  if (!res.ok) throw new SyncError(t('sync.driveError', { status: res.status }));
   return res;
 }
 

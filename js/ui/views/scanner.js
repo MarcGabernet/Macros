@@ -13,6 +13,7 @@ import { h, icon, openSheet, toast } from '../dom.js';
 import { store } from '../../core/store.js';
 import { cleanBarcode, isValidBarcode, toLookupCode, lookupBarcode, LookupError } from '../../sync/foodfacts.js';
 import { openFoodEditor } from './foodEditor.js';
+import { t } from '../../i18n.js';
 
 const NATIVE_FORMATS = ['ean_13', 'ean_8', 'upc_a'];
 const WASM_FORMATS = ['EAN13', 'EAN8', 'UPCA'];
@@ -28,7 +29,7 @@ function loadScript(src) {
     const s = document.createElement('script');
     s.src = src;
     s.onload = resolve;
-    s.onerror = () => reject(new Error('Barcode reader failed to load'));
+    s.onerror = () => reject(new Error(t('scan.loadFailed')));
     document.head.append(s);
   });
 }
@@ -63,8 +64,8 @@ function loadEngine() {
 
 /** The first valid product barcode among the texts read, in lookup form, or null. */
 function pickCode(texts) {
-  for (const t of texts || []) {
-    const code = cleanBarcode(t);
+  for (const txt of texts || []) {
+    const code = cleanBarcode(txt);
     if (code && isValidBarcode(code)) return toLookupCode(code);
   }
   return null;
@@ -101,20 +102,20 @@ async function handleBarcode(code, { close, setStatus }) {
   const mine = store.all('foods').find((f) => f.barcode && toLookupCode(f.barcode) === code);
   if (mine) {
     close();
-    toast('Already in your foods');
+    toast(t('scan.alreadyYours'));
     openFoodEditor({ food: mine });
     return;
   }
-  setStatus(`Looking up ${code}…`, 'busy');
+  setStatus(t('scan.lookingUp', { code }), 'busy');
   let product;
   try {
     product = await lookupBarcode(code);
   } catch (err) {
-    setStatus(err instanceof LookupError ? err.message : 'Something went wrong looking it up', 'error');
+    setStatus(err instanceof LookupError ? err.message : t('scan.lookupFailed'), 'error');
     return false;
   }
   close();
-  const onSaved = () => toast('Saved to your ingredients');
+  const onSaved = () => toast(t('scan.saved'));
   const base = { kind: 'ingredient', barcode: code, unit: { type: 'mass', grams: 100 }, imageUrl: product?.imageUrl || null };
   if (!product || !product.nutrientCount) {
     openFoodEditor({
@@ -122,8 +123,8 @@ async function handleBarcode(code, { close, setStatus }) {
       initial: {
         ...base, name: product?.name || '', values: {},
         sourceNote: product
-          ? `Open Food Facts has barcode ${code} but no nutrition values. Type them from the label`
-          : `Barcode ${code} isn’t in Open Food Facts yet. If it doesn’t match the number on the pack, close this and scan again; otherwise type the values from the label`,
+          ? t('scan.noValues', { code })
+          : t('scan.notFound', { code }),
       },
     });
     return;
@@ -132,7 +133,7 @@ async function handleBarcode(code, { close, setStatus }) {
     kind: 'ingredient', onSaved,
     initial: {
       ...base, name: product.name, values: product.values,
-      sourceNote: `Filled in from Open Food Facts, per 100 g${product.packageGrams ? ` (pack: ${product.packageGrams} g)` : ''}. Check the values against the label before saving`,
+      sourceNote: t(product.packageGrams ? 'scan.filledPack' : 'scan.filled', { g: product.packageGrams }),
     },
   });
 }
@@ -155,21 +156,21 @@ export function openScanner() {
   const work = document.createElement('canvas');
 
   const photoInput = h('input', { type: 'file', accept: 'image/*', capture: 'environment', hidden: true });
-  const photoBtn = h('button', { class: 'btn btn-block', type: 'button', onClick: () => photoInput.click() }, icon('camera', 18), 'Take a photo of the barcode');
+  const photoBtn = h('button', { class: 'btn btn-block', type: 'button', onClick: () => photoInput.click() }, icon('camera', 18), t('scan.photo'));
   const codeInput = h('input', {
-    class: 'input', type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'e.g. 8410000000000', 'aria-label': 'Barcode number',
+    class: 'input', type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: t('scan.example'), 'aria-label': t('scan.number'),
   });
-  const lookupBtn = h('button', { class: 'btn', type: 'button' }, 'Look up');
+  const lookupBtn = h('button', { class: 'btn', type: 'button' }, t('scan.lookUp'));
 
   function stop() {
     clearInterval(timer);
     timer = null;
-    for (const t of stream?.getTracks() || []) t.stop();
+    for (const track of stream?.getTracks() || []) track.stop();
     stream = null;
     video.srcObject = null;
   }
 
-  const sheet = openSheet({ title: 'Scan a product', onClose: () => { done = true; stop(); } });
+  const sheet = openSheet({ title: t('tab.scan'), onClose: () => { done = true; stop(); } });
   sheet.el.classList.add('sheet-tall');
   const close = () => { done = true; stop(); sheet.close(); };
 
@@ -189,16 +190,16 @@ export function openScanner() {
     if (!vw || !vh) return null;
     if (whole) return toCanvas(video, vw, vh, 0, 0, work);
     const f = frame.getBoundingClientRect();
-    const t = target.getBoundingClientRect();
+    const box = target.getBoundingClientRect();
     const scale = Math.max(f.width / vw, f.height / vh); // the video covers the frame
     const ox = (f.width - vw * scale) / 2;
     const oy = (f.height - vh * scale) / 2;
-    const mx = t.width * 0.12;
-    const my = t.height * 0.5;
-    const sx = Math.max(0, (t.left - f.left - mx - ox) / scale);
-    const sy = Math.max(0, (t.top - f.top - my - oy) / scale);
-    const sw = Math.min(vw - sx, (t.width + 2 * mx) / scale);
-    const sh = Math.min(vh - sy, (t.height + 2 * my) / scale);
+    const mx = box.width * 0.12;
+    const my = box.height * 0.5;
+    const sx = Math.max(0, (box.left - f.left - mx - ox) / scale);
+    const sy = Math.max(0, (box.top - f.top - my - oy) / scale);
+    const sw = Math.min(vw - sx, (box.width + 2 * mx) / scale);
+    const sh = Math.min(vh - sy, (box.height + 2 * my) / scale);
     return toCanvas(video, sw, sh, sx, sy, work);
   }
 
@@ -206,10 +207,10 @@ export function openScanner() {
     last = null; count = 0;
     if (!navigator.mediaDevices?.getUserMedia) {
       frame.classList.add('off');
-      setStatus('Live scanning isn’t available here. Take a photo of the barcode or type it', 'error');
+      setStatus(t('scan.noLive'), 'error');
       return;
     }
-    if (!keepStatus) setStatus('Loading the barcode reader…');
+    if (!keepStatus) setStatus(t('scan.loading'));
     frame.classList.remove('off');
     try {
       const decode = await loadEngine();
@@ -224,7 +225,7 @@ export function openScanner() {
       video.srcObject = stream;
       cameraOk = true;
       await video.play().catch(() => {});
-      if (!keepStatus) setStatus('Fit the barcode inside the frame and hold still');
+      if (!keepStatus) setStatus(t('scan.fit'));
       let tick = 0;
       timer = setInterval(async () => {
         if (busy || done || video.readyState < 2) return;
@@ -237,7 +238,7 @@ export function openScanner() {
           count = code === last ? count + 1 : 1;
           last = code;
           if (count >= SAME_READS_NEEDED) found(code);
-          else setStatus(`Reading ${code}… hold still`);
+          else setStatus(t('scan.reading', { code }));
         } catch { /* a frame that couldn't be read */ } finally {
           busy = false;
         }
@@ -247,8 +248,8 @@ export function openScanner() {
       frame.classList.add('off');
       const denied = err?.name === 'NotAllowedError' || err?.name === 'SecurityError';
       setStatus(denied
-        ? 'Camera access was not allowed. Take a photo of the barcode or type it below'
-        : 'Live scanning couldn’t start. Take a photo of the barcode or type it below', 'error');
+        ? t('scan.denied')
+        : t('scan.couldNotStart'), 'error');
     }
   }
 
@@ -257,21 +258,21 @@ export function openScanner() {
     photoInput.value = '';
     if (!file) return;
     stop();
-    setStatus('Reading the photo…', 'busy');
+    setStatus(t('scan.readingPhoto'), 'busy');
     try {
       const code = await readPhoto(file);
       if (code) { found(code); return; }
-      setStatus('No barcode found in the photo. Try closer, with the barcode flat and well lit', 'error');
+      setStatus(t('scan.noneInPhoto'), 'error');
     } catch {
-      setStatus('That photo couldn’t be read', 'error');
+      setStatus(t('scan.photoFailed'), 'error');
     }
     if (cameraOk && !done) start({ keepStatus: true });
   });
 
   const submitTyped = () => {
     const code = cleanBarcode(codeInput.value);
-    if (!code) { setStatus('A barcode has 8 to 14 digits', 'error'); return; }
-    if (!isValidBarcode(code)) { setStatus('That number doesn’t look right: check the digits', 'error'); return; }
+    if (!code) { setStatus(t('scan.digits'), 'error'); return; }
+    if (!isValidBarcode(code)) { setStatus(t('scan.badCheck'), 'error'); return; }
     found(toLookupCode(code));
   };
   lookupBtn.addEventListener('click', submitTyped);
@@ -282,9 +283,9 @@ export function openScanner() {
     status,
     photoBtn, photoInput,
     h('div', { class: 'field' },
-      h('div', { class: 'field-label' }, 'Or type the number under the barcode'),
+      h('div', { class: 'field-label' }, t('scan.typeIt')),
       h('div', { class: 'scan-manual' }, codeInput, lookupBtn)),
-    h('p', { class: 'scan-credit' }, 'Product data from Open Food Facts (openfoodfacts.org), shared under the Open Database License. Only the barcode number is sent'));
+    h('p', { class: 'scan-credit' }, t('scan.credit')));
   start();
   return sheet;
 }

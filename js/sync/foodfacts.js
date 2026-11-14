@@ -3,6 +3,7 @@
 // Its data is under the Open Database License, so the app credits it where shown.
 
 import { CATALOG } from '../core/nutrients.js';
+import { t } from '../i18n.js';
 
 const API = 'https://world.openfoodfacts.org/api/v2/product/';
 const FIELDS = ['code', 'product_name', 'product_name_es', 'product_name_en', 'generic_name', 'brands', 'quantity', 'product_quantity', 'nutriments', 'image_front_url', 'image_front_small_url', 'image_url'].join(',');
@@ -76,10 +77,10 @@ export async function lookupBarcode(code) {
   try {
     res = await fetch(`${API}${encodeURIComponent(code)}.json?fields=${FIELDS}`, { headers: { Accept: 'application/json' } });
   } catch {
-    throw new LookupError('No connection: the product can’t be looked up right now');
+    throw new LookupError(t('scan.offline'));
   }
   if (res.status === 404) return null;
-  if (!res.ok) throw new LookupError(`Open Food Facts responded with an error (${res.status})`);
+  if (!res.ok) throw new LookupError(t('scan.offError', { status: res.status }));
   const data = await res.json();
   if (data.status !== 1 || !data.product) return null;
   const p = data.product;

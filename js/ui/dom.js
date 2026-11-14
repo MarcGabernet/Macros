@@ -1,5 +1,7 @@
 // Small helpers for building the screen: elements, icons, sheets, messages.
 
+import { t } from '../i18n.js';
+
 /**
  * Create an element. `props`: class, style (object; `--custom` keys allowed),
  * on<Event> handlers, or plain attributes. Children: nodes, strings, arrays;
@@ -94,25 +96,25 @@ export function openSheet({ title, onClose } = {}) {
   const dlg = h('dialog', { class: 'sheet' },
     h('div', { class: 'sheet-head' },
       titleEl,
-      h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Close', onClick: close }, icon('close', 20))),
+      h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('common.close'), onClick: close }, icon('close', 20))),
     body, foot);
   // A click on the dimmed area outside the panel lands on the dialog itself.
   dlg.addEventListener('click', (e) => { if (e.target === dlg) close(); });
   dlg.addEventListener('close', close); // closed by the Escape key
   document.body.append(dlg);
   dlg.showModal();
-  return { el: dlg, body, foot, close, setTitle: (t) => { titleEl.textContent = t; } };
+  return { el: dlg, body, foot, close, setTitle: (text) => { titleEl.textContent = text; } };
 }
 
 /** Ask a yes/no question. Resolves true when confirmed. */
-export function confirmSheet({ title, message, confirmLabel = 'Delete', danger = true }) {
+export function confirmSheet({ title, message, confirmLabel = t('common.delete'), danger = true }) {
   return new Promise((resolve) => {
     let answer = false;
     const sheet = openSheet({ title, onClose: () => resolve(answer) });
     sheet.body.append(h('p', { class: 'sheet-text' }, message));
     sheet.foot.append(
       h('div', { class: 'btn-row' },
-        h('button', { class: 'btn', type: 'button', onClick: () => sheet.close() }, 'Cancel'),
+        h('button', { class: 'btn', type: 'button', onClick: () => sheet.close() }, t('common.cancel')),
         h('button', { class: `btn ${danger ? 'btn-danger' : 'btn-primary'}`, type: 'button', onClick: () => { answer = true; sheet.close(); } }, confirmLabel)));
   });
 }

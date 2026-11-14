@@ -7,6 +7,7 @@ import { h } from './dom.js';
 import { svg } from './components.js';
 import { fmt } from '../core/dates.js';
 import { num } from '../core/format.js';
+import { t } from '../i18n.js';
 
 const W = 320;          // drawing units; the SVG scales to the card width
 const H = 132;
@@ -114,7 +115,7 @@ export function barChart({ title, color, days, values, unit, goal, stat }) {
       marks.push(mark);
     }
     const hit = svg('rect', { class: 'hit', x: cx - step / 2, y: PAD.top, width: step, height: PLOT_H });
-    items.push({ hit, mark, x: cx, y: v > 0 ? y(v) : PAD.top + PLOT_H, text: `${fmt(d, { weekday: 'short', day: 'numeric', month: 'short' })}: ${v > 0 ? `${num(v, v < 10 ? 1 : 0)} ${unit}` : 'nothing logged'}` });
+    items.push({ hit, mark, x: cx, y: v > 0 ? y(v) : PAD.top + PLOT_H, text: `${fmt(d, { weekday: 'short', day: 'numeric', month: 'short' })}: ${v > 0 ? `${num(v, v < 10 ? 1 : 0)} ${unit}` : t('cal.nothingLoggedLower')}` });
   });
 
   const goalLine = goal?.value > 0
@@ -122,7 +123,7 @@ export function barChart({ title, color, days, values, unit, goal, stat }) {
     : null;
 
   const plot = h('div', { class: 'chart' });
-  const root = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': `${title} per day` },
+  const root = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': t('chart.perDay', { title }) },
     axes(max, count, days), marks, goalLine, items.map((it) => it.hit));
   plot.append(root);
   const card = frame({ title, color, stat, key: goal?.value > 0 ? `${goal.label} ${num(goal.value, goal.value < 10 ? 1 : 0)} ${unit}` : null, plot });
@@ -166,7 +167,7 @@ export function lineChart({ title, color, days, values, unit, stat, empty }) {
   });
 
   const plot = h('div', { class: 'chart' });
-  plot.append(svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': `${title} per day` },
+  plot.append(svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': t('chart.perDay', { title }) },
     grid, line, items.map((it) => it.mark), items.map((it) => it.hit)));
   const card = frame({ title, color, stat, plot });
   withTooltip(card, plot, items);

@@ -1,6 +1,9 @@
 // Days are handled as 'YYYY-MM-DD' strings in the device's own time zone.
 
-export const LOCALE = 'en-GB';
+import { locale } from '../i18n.js';
+
+// Dates and numbers are written the way the chosen language writes them.
+export const LOCALE = locale; // a function: LOCALE() -> 'en-GB' | 'ca-ES' | 'es-ES'
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -57,7 +60,7 @@ export function monthWeeks(key, start = 1) {
 export const sameMonth = (a, b) => a.slice(0, 7) === b.slice(0, 7);
 
 export function fmt(key, options) {
-  return new Intl.DateTimeFormat(LOCALE, options).format(parseKey(key));
+  return new Intl.DateTimeFormat(LOCALE(), options).format(parseKey(key));
 }
 
 /** "9 – 15 Nov 2026", or "30 Nov – 6 Dec 2026" across months. */

@@ -99,6 +99,7 @@ If Google wants you to choose an account, a "Reconnect" bar appears instead.
 ```
 index.html, css/app.css      the page and its styling
 js/config.js                 Google client ID, file name, version
+js/i18n.js                   every text the app shows, in English, Catalan and Spanish
 js/core/schema.js            what the data looks like: kinds of food, nutrients, units
 js/core/calc.js              all nutrition maths (pure functions)
 js/core/store.js             reading and saving the data on this device
@@ -115,7 +116,9 @@ sw.js, manifest.webmanifest  offline use and the home-screen app
 
 To add something new:
 
-- **A nutrient**: one line in `CATALOG` in `js/core/nutrients.js`.
+- **A nutrient**: one line in `CATALOG` in `js/core/nutrients.js`. Its name goes in `js/i18n.js` (`nutrient.<id>`, `.short`).
+- **A language**: add it to `LANGUAGES` in `js/i18n.js` and a text for it in
+  each entry (missing ones fall back to English). It appears in Settings > View.
 - **A kind of food** (say, a "day plan" made of meals): one entry in `KINDS`
   in `js/core/schema.js`, listing what it may contain.
 - **A new field on foods or log entries**: records are plain objects, so add

@@ -6,17 +6,18 @@
 // switching g -> mg converts the numbers instead of relabelling them.
 // Energy and weight are different things and never convert into each other.
 
+import { t } from '../i18n.js';
+
 export const DIMENSIONS = {
   energy: { base: 'kcal', units: { kcal: 1, kJ: 4.184 } },      // shown = base × factor
   mass: { base: 'g', units: { g: 1, mg: 1e3, 'µg': 1e6 } },
 };
 
 // Where a nutrient appears on the Day screen.
-export const GROUPS = [
-  { id: 'macro', label: 'Macros' },
-  { id: 'mineral', label: 'Minerals' },
-  { id: 'vitamin', label: 'Vitamins' },
-];
+export const GROUPS = ['macro', 'mineral', 'vitamin'].map((id) => ({
+  id,
+  get label() { return t(`group.${id}`); },
+}));
 
 const mg = (x) => x / 1e3; // reference values are written in their usual unit, stored in grams
 const ug = (x) => x / 1e6;
@@ -28,7 +29,8 @@ const ug = (x) => x / 1e6;
  * unit:      default display unit; units: the ones offered in Settings
  * parent:    "of which ..." sub-nutrient of another one
  * color:     colour slot from the CSS (sub-nutrients use their parent's)
- * brief:     shorter name for tight spots (defaults to name)
+ * brief:     has a shorter name for tight spots (texts: nutrient.<id>.brief)
+ * Names come from i18n.js: nutrient.<id> (and .short for the compact line, .brief)
  * line:      position in the compact one-line summary under each food (omit to leave it out)
  * ref:       daily reference for an adult, in the base unit (EU Regulation 1169/2011, Annex XIII;
  *            fibre from EFSA, which the EU label has none for). Not editable.
@@ -41,26 +43,33 @@ const ug = (x) => x / 1e6;
  * Note: in the EU fibre is NOT part of carbohydrate; it is listed on its own.
  */
 export const CATALOG = [
-  { id: 'kcal', off: 'energy-kcal', group: 'macro', name: 'Calories', short: 'kcal', dimension: 'energy', unit: 'kcal', units: ['kcal', 'kJ'], color: 'orange', line: 1, ref: 2000 },
-  { id: 'fat', off: 'fat', group: 'macro', name: 'Fat', short: 'F', dimension: 'mass', unit: 'g', units: ['g'], color: 'magenta', line: 4, ref: 70 },
-  { id: 'saturates', off: 'saturated-fat', group: 'macro', name: 'Saturates', short: 'Sat', dimension: 'mass', unit: 'g', units: ['g'], parent: 'fat', ref: 20 },
-  { id: 'monounsaturates', off: 'monounsaturated-fat', group: 'macro', name: 'Monounsaturates', brief: 'Monounsat.', short: 'Mono', dimension: 'mass', unit: 'g', units: ['g'], parent: 'fat' },
-  { id: 'polyunsaturates', off: 'polyunsaturated-fat', group: 'macro', name: 'Polyunsaturates', brief: 'Polyunsat.', short: 'Poly', dimension: 'mass', unit: 'g', units: ['g'], parent: 'fat' },
-  { id: 'carbs', off: 'carbohydrates', group: 'macro', name: 'Carbohydrate', short: 'C', dimension: 'mass', unit: 'g', units: ['g'], color: 'yellow', line: 3, ref: 260 },
-  { id: 'sugars', off: 'sugars', group: 'macro', name: 'Sugars', short: 'Sug', dimension: 'mass', unit: 'g', units: ['g'], parent: 'carbs', ref: 90 },
-  { id: 'fibre', off: 'fiber', group: 'macro', name: 'Fibre', short: 'Fib', dimension: 'mass', unit: 'g', units: ['g'], color: 'green', ref: 25 },
-  { id: 'protein', off: 'proteins', group: 'macro', name: 'Protein', short: 'P', dimension: 'mass', unit: 'g', units: ['g'], color: 'blue', line: 2, ref: 50, refPerKg: 0.83 },
+  { id: 'kcal', off: 'energy-kcal', group: 'macro', dimension: 'energy', unit: 'kcal', units: ['kcal', 'kJ'], color: 'orange', line: 1, ref: 2000 },
+  { id: 'fat', off: 'fat', group: 'macro', dimension: 'mass', unit: 'g', units: ['g'], color: 'magenta', line: 4, ref: 70 },
+  { id: 'saturates', off: 'saturated-fat', group: 'macro', dimension: 'mass', unit: 'g', units: ['g'], parent: 'fat', ref: 20 },
+  { id: 'monounsaturates', off: 'monounsaturated-fat', group: 'macro', brief: true, dimension: 'mass', unit: 'g', units: ['g'], parent: 'fat' },
+  { id: 'polyunsaturates', off: 'polyunsaturated-fat', group: 'macro', brief: true, dimension: 'mass', unit: 'g', units: ['g'], parent: 'fat' },
+  { id: 'carbs', off: 'carbohydrates', group: 'macro', dimension: 'mass', unit: 'g', units: ['g'], color: 'yellow', line: 3, ref: 260 },
+  { id: 'sugars', off: 'sugars', group: 'macro', dimension: 'mass', unit: 'g', units: ['g'], parent: 'carbs', ref: 90 },
+  { id: 'fibre', off: 'fiber', group: 'macro', dimension: 'mass', unit: 'g', units: ['g'], color: 'green', ref: 25 },
+  { id: 'protein', off: 'proteins', group: 'macro', dimension: 'mass', unit: 'g', units: ['g'], color: 'blue', line: 2, ref: 50, refPerKg: 0.83 },
 
-  { id: 'salt', off: 'salt', group: 'mineral', name: 'Salt', short: 'Salt', dimension: 'mass', unit: 'g', units: ['g', 'mg'], color: 'violet', ref: 6 },
-  { id: 'potassium', off: 'potassium', group: 'mineral', name: 'Potassium', short: 'K', dimension: 'mass', unit: 'mg', units: ['mg', 'g'], color: 'aqua', ref: mg(2000) },
-  { id: 'calcium', off: 'calcium', group: 'mineral', name: 'Calcium', short: 'Ca', dimension: 'mass', unit: 'mg', units: ['mg', 'g'], color: 'blue', ref: mg(800) },
-  { id: 'iron', off: 'iron', group: 'mineral', name: 'Iron', short: 'Fe', dimension: 'mass', unit: 'mg', units: ['mg', 'µg'], color: 'red', ref: mg(14) },
-  { id: 'magnesium', off: 'magnesium', group: 'mineral', name: 'Magnesium', short: 'Mg', dimension: 'mass', unit: 'mg', units: ['mg', 'g'], color: 'green', ref: mg(375) },
+  { id: 'salt', off: 'salt', group: 'mineral', dimension: 'mass', unit: 'g', units: ['g', 'mg'], color: 'violet', ref: 6 },
+  { id: 'potassium', off: 'potassium', group: 'mineral', dimension: 'mass', unit: 'mg', units: ['mg', 'g'], color: 'aqua', ref: mg(2000) },
+  { id: 'calcium', off: 'calcium', group: 'mineral', dimension: 'mass', unit: 'mg', units: ['mg', 'g'], color: 'blue', ref: mg(800) },
+  { id: 'iron', off: 'iron', group: 'mineral', dimension: 'mass', unit: 'mg', units: ['mg', 'µg'], color: 'red', ref: mg(14) },
+  { id: 'magnesium', off: 'magnesium', group: 'mineral', dimension: 'mass', unit: 'mg', units: ['mg', 'g'], color: 'green', ref: mg(375) },
 
-  { id: 'vitaminC', off: 'vitamin-c', group: 'vitamin', name: 'Vitamin C', short: 'C', dimension: 'mass', unit: 'mg', units: ['mg'], color: 'yellow', ref: mg(80) },
-  { id: 'vitaminD', off: 'vitamin-d', group: 'vitamin', name: 'Vitamin D', short: 'D', dimension: 'mass', unit: 'µg', units: ['µg'], color: 'orange', ref: ug(5) },
-  { id: 'vitaminB12', off: 'vitamin-b12', group: 'vitamin', name: 'Vitamin B12', short: 'B12', dimension: 'mass', unit: 'µg', units: ['µg'], color: 'violet', ref: ug(2.5) },
+  { id: 'vitaminC', off: 'vitamin-c', group: 'vitamin', dimension: 'mass', unit: 'mg', units: ['mg'], color: 'yellow', ref: mg(80) },
+  { id: 'vitaminD', off: 'vitamin-d', group: 'vitamin', dimension: 'mass', unit: 'µg', units: ['µg'], color: 'orange', ref: ug(5) },
+  { id: 'vitaminB12', off: 'vitamin-b12', group: 'vitamin', dimension: 'mass', unit: 'µg', units: ['µg'], color: 'violet', ref: ug(2.5) },
 ];
+
+// Names in the current language (read when used, so they follow a language change).
+for (const n of CATALOG) {
+  Object.defineProperty(n, 'name', { get: () => t(`nutrient.${n.id}`), enumerable: true });
+  if (n.brief) Object.defineProperty(n, 'brief', { get: () => t(`nutrient.${n.id}.brief`), enumerable: true });
+  Object.defineProperty(n, 'short', { get: () => t(`nutrient.${n.id}.short`), enumerable: true });
+}
 
 const BY_ID = Object.fromEntries(CATALOG.map((n) => [n.id, n]));
 
@@ -72,6 +81,11 @@ export const toDisplay = (n, base) => base * factor(n);
 export const fromDisplay = (n, shown) => shown / factor(n);
 
 export const isEnergy = (n) => n.dimension === 'energy';
+
+/** "of which saturates" for a sub-nutrient (worded per parent: languages differ by gender). */
+export const ofWhich = (n) => t(`nutrient.${n.parent}.ofWhich`, { name: n.name.toLowerCase() });
+/** The same, starting with a capital. */
+export const ofWhichTitle = (n) => { const s = ofWhich(n); return s.charAt(0).toUpperCase() + s.slice(1); };
 
 export const isLimit = (n) => n.goalType === 'limit';
 

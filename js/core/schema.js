@@ -1,6 +1,8 @@
 // The shape of the data. Everything the app tracks is described here as data,
 // so adding a new nutrient, kind of food or way of measuring is a table edit.
 
+import { t } from '../i18n.js';
+
 // RULE: saved data must keep working in every future version.
 // - Never rename or reuse a stored key (nutrient ids, collections, settings, fields).
 // - Only add fields, and give them a default for data that doesn't have them.
@@ -18,19 +20,17 @@ export const COLLECTIONS = ['nutrients', 'foods', 'entries', 'weights'];
 // They differ only in what they may be composed of. Because a dish can hold
 // ingredients only, and a meal can hold ingredients and dishes but never meals,
 // composition can never loop back on itself.
+// Their names and sentences live in i18n.js under `kind.<id>.*`.
+const kind = (id, components) => ({
+  id, components,
+  get label() { return t(`kind.${id}`); },
+  get plural() { return t(`kind.${id}.plural`); },
+  get hint() { return t(`kind.${id}.hint`); },
+});
 export const KINDS = {
-  ingredient: {
-    id: 'ingredient', label: 'Ingredient', plural: 'Ingredients', components: [],
-    hint: 'A single food with its own nutrition values',
-  },
-  dish: {
-    id: 'dish', label: 'Dish', plural: 'Dishes', components: ['ingredient'],
-    hint: 'A recipe built from ingredients, or entered directly',
-  },
-  meal: {
-    id: 'meal', label: 'Meal', plural: 'Meals', components: ['ingredient', 'dish'],
-    hint: 'A combination of dishes and ingredients you eat together',
-  },
+  ingredient: kind('ingredient', []),
+  dish: kind('dish', ['ingredient']),
+  meal: kind('meal', ['ingredient', 'dish']),
 };
 export const KIND_ORDER = ['ingredient', 'dish', 'meal'];
 

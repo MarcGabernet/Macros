@@ -11,6 +11,7 @@ import {
 import { nutrientNum, withUnit, unitLabel, amountSuffix, parseNum, inputStr, pieceName } from '../core/format.js';
 import { openFoodEditor } from './views/foodEditor.js';
 import { avatar } from './picture.js';
+import { t } from '../i18n.js';
 
 /**
  * Every nutrient, enabled or not, with your unit/target settings and its daily
@@ -53,7 +54,7 @@ export function meter(value, goal, nutrient, { soft = false } = {}) {
   const ratio = goal > 0 ? Math.min(1, Math.max(0, value / goal)) : 0;
   return h('div', {
     class: `meter${soft ? ' meter-soft' : ''}`, role: 'img', style: { '--c': colorVar(nutrient) },
-    'aria-label': `${withUnit(nutrient, value)} of ${withUnit(nutrient, goal)}`,
+    'aria-label': t('goal.aria', { value: withUnit(nutrient, value), goal: withUnit(nutrient, goal) }),
   }, h('div', { class: 'meter-fill', style: { width: `${(ratio * 100).toFixed(1)}%` } }));
 }
 
@@ -87,30 +88,30 @@ export function ring(value, target, nutrient, { size = 56, stroke = 7, center = 
   const overLimit = isLimit(nutrient) && ratio > 1;
   return h('div', {
     class: `ring${overLimit ? ' over-limit' : ''}`, role: 'img', style: { '--c': colorVar(nutrient), width: `${size}px`, height: `${size}px` },
-    'aria-label': `${withUnit(nutrient, value)} of ${isLimit(nutrient) ? 'a limit of ' : ''}${withUnit(nutrient, target)} (${Math.round(ratio * 100)}%)`,
+    'aria-label': t(isLimit(nutrient) ? 'goal.ringLimitAria' : 'goal.ringAria', { value: withUnit(nutrient, value), goal: withUnit(nutrient, target), pct: Math.round(ratio * 100) }),
   }, g, center ? h('div', { class: 'ring-center' }, center) : null);
 }
 
 /** "Ref 70 g": the fixed daily reference, shown next to goals. */
-export const refText = (n, days = 1) => (n.reference ? `Ref ${withUnit(n, n.reference * days)}` : null);
+export const refText = (n, days = 1) => (n.reference ? t('ref.short', { value: withUnit(n, n.reference * days) }) : null);
 
 /** "of 140 g" for a target, "limit 6 g" for a limit. */
-const goalText = (n) => (isLimit(n) ? `limit ${withUnit(n, n.target)}` : `of ${withUnit(n, n.target)}`);
+const goalText = (n) => t(isLimit(n) ? 'goal.limitOf' : 'goal.targetOf', { value: withUnit(n, n.target) });
 
 /** How far from the goal: "30 g to go" / "Target reached", or "2 g left" / "1 g over limit". */
 function goalNote(n, value) {
   const diff = n.target - value;
-  if (isLimit(n)) return diff >= 0 ? `${withUnit(n, diff)} left` : `${withUnit(n, -diff)} over limit`;
-  return diff > 0 ? `${withUnit(n, diff)} to go` : 'Target reached';
+  if (isLimit(n)) return diff >= 0 ? t('goal.left', { value: withUnit(n, diff) }) : t('goal.overLimit', { value: withUnit(n, -diff) });
+  return diff > 0 ? t('goal.toGo', { value: withUnit(n, diff) }) : t('goal.reached');
 }
 
 /** A bar towards the goal, or (lighter) towards the reference when there is no goal. */
 function goalMeter(n, value) {
-  const t = n.target > 0 ? n.target : null;
-  const goal = t ?? n.reference;
+  const tg = n.target > 0 ? n.target : null;
+  const goal = tg ?? n.reference;
   if (!goal) return null;
-  const bar = meter(value, goal, n, { soft: t == null });
-  if (t != null && isLimit(n) && value > t) bar.classList.add('over-limit');
+  const bar = meter(value, goal, n, { soft: tg == null });
+  if (tg != null && isLimit(n) && value > tg) bar.classList.add('over-limit');
   return bar;
 }
 
@@ -125,19 +126,19 @@ export function goalsStrip(values, nutrients, { isToday = true } = {}) {
   const goals = nutrients.filter((n) => n.target > 0);
   if (!goals.length) return null;
   const met = goals.filter((n) => goalMet(n, values[n.id] || 0));
-  return h('section', { class: 'card goals-strip', 'aria-label': 'Goals' },
+  return h('section', { class: 'card goals-strip', 'aria-label': t('goals.aria') },
     h('div', { class: 'goals-head' },
-      h('span', { class: 'goals-title' }, isToday ? 'Goals today' : 'Goals this day'),
-      h('span', { class: `goals-count${met.length === goals.length ? ' all' : ''}` }, `${met.length} of ${goals.length} met`)),
+      h('span', { class: 'goals-title' }, isToday ? t('goals.today') : t('goals.thisDay')),
+      h('span', { class: `goals-count${met.length === goals.length ? ' all' : ''}` }, t('goals.met', { met: met.length, total: goals.length }))),
     h('div', { class: 'goals-chips' }, goals.map((n) => {
       const ok = met.includes(n);
       return h('span', {
         class: `goal-chip${ok ? ' ok' : ''}`, style: { '--c': colorVar(n) },
-        title: `${n.name}: ${isLimit(n) ? 'limit' : 'target'} ${withUnit(n, n.target)}`,
+        title: `${n.name}: ${t(isLimit(n) ? 'goal.limitOf' : 'goal.targetOf', { value: withUnit(n, n.target) })}`,
       },
       h('span', { class: 'goal-mark', 'aria-hidden': 'true' }, ok ? '✓' : '·'),
       n.depth ? n.brief || n.name : n.name,
-      h('span', { class: 'sr-only' }, ok ? ' met' : ' not met'));
+      h('span', { class: 'sr-only' }, ` ${ok ? t('goals.isMet') : t('goals.notMet')}`));
     })));
 }
 
@@ -176,7 +177,7 @@ export function summaryCard(values, nutrients, { caption } = {}) {
   return h('section', { class: 'card summary' },
     hero,
     rest.length ? h('div', { class: 'tiles', style: { gridTemplateColumns: `repeat(${tileColumns(rest.length, macros.some((x) => x.depth))}, minmax(0, 1fr))` } }, rest.map((n, i) => {
-      const t = n.target > 0 ? n.target : null;
+      const tg = n.target > 0 ? n.target : null;
       const v = values[n.id] || 0;
       const r = refText(n);
       // A last tile left alone on its row takes the full width.
@@ -184,10 +185,10 @@ export function summaryCard(values, nutrients, { caption } = {}) {
       return h('div', { class: 'tile', style: alone ? { gridColumn: '1 / -1' } : null },
         h('div', { class: 'tile-label' }, dot(n), n.name),
         h('div', { class: 'tile-main' },
-          t != null ? ring(v, t, n, { size: 46, stroke: 6 }) : null,
+          tg != null ? ring(v, tg, n, { size: 46, stroke: 6 }) : null,
           h('div', { class: 'tile-figures' },
             h('div', { class: 'tile-value' }, nutrientNum(n, v), h('span', { class: 'tile-unit' }, ` ${n.unit}`)),
-            t != null ? h('div', { class: `tile-note${isLimit(n) && v > t ? ' warn' : ''}` }, goalText(n)) : null,
+            tg != null ? h('div', { class: `tile-note${isLimit(n) && v > tg ? ' warn' : ''}` }, goalText(n)) : null,
             r ? h('div', { class: 'tile-note' }, r) : null)),
         childrenOf(n, macros).map((c) => {
           const cv = values[c.id] || 0;
@@ -195,7 +196,7 @@ export function summaryCard(values, nutrients, { caption } = {}) {
           return h('div', { class: 'tile-sub' },
             h('div', { class: 'tile-sub-head' },
               h('span', { class: 'tile-sub-name' }, c.brief || c.name),
-              h('span', { class: 'tile-sub-value' }, withUnit(c, cv), ct != null ? h('span', { class: 'tile-sub-goal' }, ` / ${isLimit(c) ? 'max ' : ''}${withUnit(c, ct)}`) : null)),
+              h('span', { class: 'tile-sub-value' }, withUnit(c, cv), ct != null ? h('span', { class: 'tile-sub-goal' }, ` / ${isLimit(c) ? t('goal.max') + ' ' : ''}${withUnit(c, ct)}`) : null)),
             goalMeter(c, cv));
         }));
     })) : null);
@@ -208,13 +209,13 @@ export function summaryCard(values, nutrients, { caption } = {}) {
 export function nutrientListCard(values, nutrients) {
   return h('div', { class: 'card micro-list' }, nutrients.map((n) => {
     const v = values[n.id] || 0;
-    const t = n.target > 0 ? n.target : null;
+    const tg = n.target > 0 ? n.target : null;
     return h('div', { class: 'micro-row' },
       h('div', { class: 'micro-head' },
         h('span', { class: 'micro-name' }, dot(n), n.name),
-        h('span', { class: 'micro-value' }, withUnit(n, v), t != null ? h('span', { class: 'micro-goal' }, ` / ${isLimit(n) ? 'max ' : ''}${withUnit(n, t)}`) : null)),
+        h('span', { class: 'micro-value' }, withUnit(n, v), tg != null ? h('span', { class: 'micro-goal' }, ` / ${isLimit(n) ? t('goal.max') + ' ' : ''}${withUnit(n, tg)}`) : null)),
       goalMeter(n, v),
-      n.reference ? h('div', { class: 'micro-ref' }, `${refText(n)} · ${Math.round((v / n.reference) * 100)}% of it`) : null);
+      n.reference ? h('div', { class: 'micro-ref' }, t('ref.share', { ref: refText(n), pct: Math.round((v / n.reference) * 100) })) : null);
   }));
 }
 
@@ -278,7 +279,7 @@ export function foodRow(food, db, nutrients, { onClick, showKind = false, traili
     h('button', { class: 'row', type: 'button', onClick },
       avatar(food, 40),
       h('div', { class: 'row-main' },
-        h('div', { class: 'row-title' }, food.name, incomplete ? h('span', { class: 'warn-mark', title: 'Some parts are incomplete' }, icon('alert', 14)) : null),
+        h('div', { class: 'row-title' }, food.name, incomplete ? h('span', { class: 'warn-mark', title: t('food.incomplete') }, icon('alert', 14)) : null),
         h('div', { class: 'row-sub' }, sub)),
       h('div', { class: 'row-side' }, macroLine(values, nutrients, { limit: 4 }))),
     trailing || null);
@@ -290,7 +291,7 @@ export function foodRow(food, db, nutrients, { onClick, showKind = false, traili
  * Choose a food from the library. `kinds` limits what can be chosen (a dish may
  * only take ingredients, for example). `onPick(food, sheet)` decides what next.
  */
-export function openFoodPicker({ title = 'Choose a food', kinds = KIND_ORDER, onPick }) {
+export function openFoodPicker({ title = t('picker.title'), kinds = KIND_ORDER, onPick }) {
   const sheet = openSheet({ title });
   sheet.el.classList.add('sheet-tall');
   let query = '';
@@ -303,7 +304,7 @@ export function openFoodPicker({ title = 'Choose a food', kinds = KIND_ORDER, on
 
   const list = h('div', { class: 'list' });
   const search = h('input', {
-    class: 'input search-input', type: 'search', placeholder: 'Search', autocomplete: 'off', 'aria-label': 'Search foods',
+    class: 'input search-input', type: 'search', placeholder: t('common.search'), autocomplete: 'off', 'aria-label': t('picker.search'),
     onInput: () => { query = search.value.trim().toLowerCase(); renderList(); },
   });
 
@@ -316,33 +317,33 @@ export function openFoodPicker({ title = 'Choose a food', kinds = KIND_ORDER, on
       .sort((a, b) => (lastUsed.get(b.id) || 0) - (lastUsed.get(a.id) || 0) || a.name.localeCompare(b.name));
     list.replaceChildren(...(foods.length
       ? foods.map((f) => foodRow(f, db, nutrients, { showKind: kinds.length > 1 && filter === 'all', onClick: () => onPick(f, sheet) }))
-      : [emptyState(query ? 'Nothing matches' : 'Nothing here yet', query ? 'Try another name, or create it below' : 'Create your first one below')]));
+      : [emptyState(query ? t('common.nothingMatches') : t('picker.emptyTitle'), query ? t('picker.tryOrCreate') : t('picker.createFirst'))]));
   }
 
   add(sheet.body,
     h('div', { class: 'search-wrap' }, icon('search', 18), search),
     kinds.length > 1
-      ? segmented([{ value: 'all', label: 'All' }, ...kinds.map((k) => ({ value: k, label: KINDS[k].plural }))], filter,
-        (v) => { filter = v; renderList(); }, { small: true, label: 'Kind of food' })
+      ? segmented([{ value: 'all', label: t('picker.all') }, ...kinds.map((k) => ({ value: k, label: KINDS[k].plural }))], filter,
+        (v) => { filter = v; renderList(); }, { small: true, label: t('foods.kind') })
       : null,
     list);
   sheet.foot.append(h('div', { class: 'btn-row wrap' },
     kinds.map((k) => h('button', {
       class: 'btn', type: 'button',
       onClick: () => openFoodEditor({ kind: k, initialName: search.value.trim(), onSaved: (food) => { renderList(); onPick(food, sheet); } }),
-    }, icon('plus', 16), `New ${KINDS[k].label.toLowerCase()}`))));
+    }, icon('plus', 16), t(`kind.${k}.new`)))));
   renderList();
   return sheet;
 }
 
 const QUICK = { grams: [50, 100, 150, 200, 250], units: [0.5, 1, 2, 3], percent: [25, 50, 75, 100] };
-const TYPE_LABELS = { grams: 'Grams', units: 'Units', percent: 'Percent' };
+const typeLabel = (type) => t(`amount.type.${type}`);
 
 /**
  * Ask how much of a food. Used for logging and for the parts of a recipe.
  * `onConfirm(amount)` receives { type, value }; `onDelete` adds a delete button.
  */
-export function openAmountSheet({ food, amount, title, confirmLabel = 'Add', onConfirm, onDelete }) {
+export function openAmountSheet({ food, amount, title, confirmLabel = t('common.add'), onConfirm, onDelete }) {
   const db = store.db;
   const nutrients = activeNutrients(db);
   const types = allowedAmountTypes(food, db.foods);
@@ -354,7 +355,7 @@ export function openAmountSheet({ food, amount, title, confirmLabel = 'Add', onC
   const chips = h('div', { class: 'chips' });
   const confirm = h('button', { class: 'btn btn-primary btn-block', type: 'button', onClick: submit }, confirmLabel);
   const box = numberField({
-    value: inputStr(current.value), suffix: amountSuffix(food, current.type), label: 'Amount', large: true,
+    value: inputStr(current.value), suffix: amountSuffix(food, current.type), label: t('amount.label'), large: true,
     onInput: (text) => { current.value = parseNum(text); refresh(); },
   });
   box.input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
@@ -365,7 +366,7 @@ export function openAmountSheet({ food, amount, title, confirmLabel = 'Add', onC
     confirm.disabled = !valid();
     preview.replaceChildren(valid()
       ? macroLine(valuesFor(food, current, db.foods), nutrients)
-      : h('span', { class: 'muted' }, 'Enter an amount'));
+      : h('span', { class: 'muted' }, t('amount.enter')));
   }
 
   function renderChips() {
@@ -394,15 +395,15 @@ export function openAmountSheet({ food, amount, title, confirmLabel = 'Add', onC
   add(sheet.body,
     h('div', { class: 'sheet-sub' }, [KINDS[food.kind].label, unitLabel(food, db.foods)].join(' · ')),
     types.length > 1
-      ? segmented(types.map((t) => ({ value: t, label: t === 'units' ? `× ${pieceName(food)}` : TYPE_LABELS[t] })), current.type, setType, { label: 'Measure in' })
+      ? segmented(types.map((type) => ({ value: type, label: type === 'units' ? `× ${pieceName(food)}` : typeLabel(type) })), current.type, setType, { label: t('amount.measureIn') })
       : null,
     box.el, chips, preview,
     isComposite(food) && foodIssues(food, db.foods).length
-      ? h('div', { class: 'notice' }, icon('alert', 16), 'Some parts of this food are incomplete, so its numbers may be low')
+      ? h('div', { class: 'notice' }, icon('alert', 16), t('food.incompleteLow'))
       : null);
   sheet.foot.append(onDelete
     ? h('div', { class: 'btn-row' },
-      h('button', { class: 'btn btn-danger-ghost', type: 'button', 'aria-label': 'Remove', onClick: () => { sheet.close(); onDelete(); } }, icon('trash', 18)),
+      h('button', { class: 'btn btn-danger-ghost', type: 'button', 'aria-label': t('common.remove'), onClick: () => { sheet.close(); onDelete(); } }, icon('trash', 18)),
       confirm)
     : confirm);
   renderChips();
