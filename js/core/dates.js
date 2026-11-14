@@ -59,6 +59,7 @@ export function monthWeeks(key, start = 1) {
 
 export const sameMonth = (a, b) => a.slice(0, 7) === b.slice(0, 7);
 
+
 export function fmt(key, options) {
   return new Intl.DateTimeFormat(LOCALE(), options).format(parseKey(key));
 }

@@ -1,11 +1,11 @@
-// Create or edit a food (ingredient, dish or meal).
+// Create or edit a food (a product, or a meal built from products).
 //
 // A food either has its values typed in directly, or is built from components
 // (other foods). Which kinds of food may be components is set in schema.js.
 
 import { h, icon, openSheet, confirmSheet, toast, fill } from '../dom.js';
 import { store } from '../../core/store.js';
-import { KINDS, allowedComponentKinds, canBeComposite } from '../../core/schema.js';
+import { KINDS, allowedComponentKinds, canBeComposite, canBeDirect } from '../../core/schema.js';
 import {
   perUnit, unitGrams, valuesFor, scale, canBePercent, toPercent, fromPercent, foodIssues,
 } from '../../core/calc.js';
@@ -28,16 +28,17 @@ export function openFoodEditor({ food, kind, initialName = '', initial = null, o
   const src = food || (initial ? { source: 'direct', ...initial } : null);
   const partKinds = allowedComponentKinds(k);
   const composable = canBeComposite(k);
+  const typeable = canBeDirect(k); // meals are only built from products
   const nutrients = activeNutrients();
 
   // What is being edited. Numbers stay as typed text until saving.
   const draft = {
     name: src?.name ?? initialName,
-    source: src ? src.source : (composable ? 'components' : 'direct'),
-    unitType: src?.unit?.type ?? (composable ? 'piece' : 'mass'),
-    massGrams: src?.unit?.type === 'mass' ? inputStr(src.unit.grams) : '100',
-    pieceName: src?.unit?.name ?? '',
-    pieceGrams: src?.unit?.type === 'piece' ? inputStr(src.unit.grams) : '',
+    source: !typeable ? 'components' : src ? src.source : (composable ? 'components' : 'direct'),
+    // Reference weight: the values are for this many grams (empty: for one unit).
+    refGrams: src ? (src.unit?.type === 'mass' ? inputStr(src.unit.grams) : '') : (composable ? '' : '100'),
+    // Weight of one unit of this food (optional); for a built food, its total weight.
+    unitG: src?.unit?.type === 'mass' ? inputStr(src.unit.pieceGrams) : inputStr(src?.unit?.grams),
     mode: src?.inputMode ?? 'amount', // 'amount' | 'percent': how values are typed
     barcode: src?.barcode ?? '',
     image: src?.image ?? null, // { kind: 'photo', data } | { kind: 'emoji', value } | null
@@ -45,11 +46,9 @@ export function openFoodEditor({ food, kind, initialName = '', initial = null, o
     components: (src?.components ?? []).map((c) => ({ foodId: c.foodId, amount: { ...c.amount } })),
   };
 
-  /** Grams in one unit while typing values directly, or null. */
-  const directGrams = () => {
-    const g = parseNum(draft.unitType === 'mass' ? draft.massGrams : draft.pieceGrams);
-    return g > 0 ? g : null;
-  };
+  const positive = (text) => { const g = parseNum(text); return g > 0 ? g : null; };
+  /** The grams the typed values are for: the reference weight, else one unit's weight, else null. */
+  const directGrams = () => positive(draft.refGrams) ?? positive(draft.unitG);
   const usesPercent = (n) => draft.mode === 'percent' && canBePercent(n);
 
   // Fill the value boxes from the stored (per unit) values.
@@ -87,14 +86,18 @@ export function openFoodEditor({ food, kind, initialName = '', initial = null, o
     if (draft.source === 'components') {
       return {
         ...base,
-        unit: { type: 'piece', name: draft.pieceName.trim(), grams: parseNum(draft.pieceGrams) > 0 ? parseNum(draft.pieceGrams) : null },
+        unit: { type: 'piece', grams: positive(draft.unitG) },
         components: draft.components.map((c) => ({ foodId: c.foodId, amount: { ...c.amount } })),
         values: {}, inputMode: 'amount',
       };
     }
-    const unit = draft.unitType === 'mass'
-      ? { type: 'mass', grams: parseNum(draft.massGrams) }
-      : { type: 'piece', name: draft.pieceName.trim(), grams: directGrams() };
+    // With a reference weight the values are per that weight ('mass'); without
+    // one they are per unit ('piece'). The unit weight is optional either way.
+    const unit = positive(draft.refGrams)
+      ? { type: 'mass', grams: positive(draft.refGrams), pieceGrams: positive(draft.unitG) }
+      : { type: 'piece', grams: positive(draft.unitG) };
+    // Older versions let a unit have its own name ("slice"); it's no longer shown, but kept.
+    if (src?.unit?.name) unit.name = src.unit.name;
     // Keep the values of nutrients that aren't shown here (switched off in Settings,
     // or unknown to this version of the app) so they aren't lost; a cleared box removes its value.
     const shown = new Set(nutrients.map((n) => n.id));
@@ -103,12 +106,21 @@ export function openFoodEditor({ food, kind, initialName = '', initial = null, o
   }
 
   function validate() {
-    if (!draft.name.trim()) return t('editor.needName');
+    const name = draft.name.trim();
+    if (!name) return t('editor.needName');
+    // Names are unique among all foods, and a barcode belongs to one product only.
+    const others = store.all('foods').filter((f) => f.id !== food?.id);
+    const sameName = others.find((f) => f.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase());
+    if (sameName) return t('editor.nameTaken', { name: sameName.name });
+    const code = k === 'ingredient' ? draft.barcode.replace(/\D/g, '') : '';
+    const sameCode = code && others.find((f) => f.barcode && f.barcode.replace(/\D/g, '') === code);
+    if (sameCode) return t('editor.barcodeTaken', { name: sameCode.name });
     if (draft.source === 'components') {
       if (!draft.components.length) return t(`kind.${k}.needsParts`);
       return null;
     }
-    if (draft.unitType === 'mass' && !(parseNum(draft.massGrams) > 0)) return t('editor.needWeight');
+    if (draft.refGrams.trim() && !positive(draft.refGrams)) return t('editor.badRefWeight');
+    if (draft.unitG.trim() && !positive(draft.unitG)) return t('editor.badUnitWeight');
     if (draft.mode === 'percent' && !directGrams()) return t('editor.percentNeedsWeight');
     for (const n of nutrients) {
       const text = draft.inputs[n.id].trim();
@@ -152,37 +164,39 @@ export function openFoodEditor({ food, kind, initialName = '', initial = null, o
   const nameInput = h('input', {
     class: 'input', type: 'text', placeholder: t(`kind.${k}.example`),
     autocomplete: 'off', autocapitalize: 'sentences', 'aria-label': t('editor.name'), value: draft.name,
-    onInput: () => { draft.name = nameInput.value; if (!draft.image) picture.paint(); },
+    onInput: () => { draft.name = nameInput.value; if (!draft.image) picture.paint(); refreshDirect(); },
   });
 
   // ---- sections (rebuilt when the structure changes, not on every keystroke)
 
+  const nameForUnit = () => draft.name.trim() || t(`kind.${k}.this`);
+
   function unitSection() {
-    const weightBox = numberField({
-      value: draft.massGrams, suffix: 'g', label: t('editor.valuesFor'),
-      onInput: (text) => { draft.massGrams = text; refreshDirect(); },
+    const refBox = numberField({
+      value: draft.refGrams, placeholder: t('common.optional'), suffix: 'g', label: t('editor.refWeight'),
+      onInput: (text) => { draft.refGrams = text; refreshDirect(); },
     });
-    const nameBox = h('input', {
-      class: 'input', type: 'text', placeholder: t(k === 'ingredient' ? 'editor.pieceExample' : 'editor.portionExample'),
-      autocomplete: 'off', autocapitalize: 'none', 'aria-label': t('editor.pieceName'), value: draft.pieceName,
-      onInput: () => { draft.pieceName = nameBox.value; refreshDirect(); },
+    const unitBox = numberField({
+      value: draft.unitG, placeholder: t('common.optional'), suffix: 'g', label: t('editor.unitWeightAria'),
+      onInput: (text) => { draft.unitG = text; refreshDirect(); },
     });
-    const pieceWeightBox = numberField({
-      value: draft.pieceGrams, placeholder: t('common.optional'), suffix: 'g', label: t('editor.pieceWeight'),
-      onInput: (text) => { draft.pieceGrams = text; refreshDirect(); },
-    });
+    const unitLabelEl = h('div', { class: 'field-label' });
+    const canLog = h('div', { class: 'field-hint can-log' });
+    paintUnit = () => {
+      unitLabelEl.textContent = t('editor.unitWeight', { name: nameForUnit() });
+      const ref = positive(draft.refGrams);
+      const unit = positive(draft.unitG);
+      canLog.textContent = t(ref ? (unit ? 'editor.logBoth' : 'editor.logGrams') : (unit ? 'editor.logBoth' : 'editor.logUnits'), { name: nameForUnit() });
+    };
+    paintUnit();
     return h('section', { class: 'form-section' },
-      h('h3', {}, t('editor.oneUnitIs')),
-      segmented([{ value: 'mass', label: t('editor.aWeight') }, { value: 'piece', label: t('editor.onePiece') }], draft.unitType,
-        (v) => { draft.unitType = v; if (!directGrams()) switchMode('amount', false); render(); }, { label: t('editor.unit') }),
-      draft.unitType === 'mass'
-        ? field(t('editor.valuesBelowFor'), weightBox.el)
-        : [
-          field(t('editor.pieceCalled'), nameBox),
-          field(t('editor.pieceWeightLabel'), pieceWeightBox.el, t('editor.pieceWeightHint')),
-        ]);
+      h('h3', {}, t('editor.weights')),
+      field(t('editor.refWeight'), refBox.el, t('editor.refWeightHint')),
+      h('div', { class: 'field' }, unitLabelEl, unitBox.el, h('div', { class: 'field-hint' }, t('editor.unitWeightHint'))),
+      canLog);
   }
 
+  let paintUnit = () => {};
   let refreshDirect = () => {};
 
   function switchMode(mode, convert = true) {
@@ -210,10 +224,12 @@ export function openFoodEditor({ food, kind, initialName = '', initial = null, o
     const hint = h('div', { class: 'field-hint' });
 
     refreshDirect = () => {
+      paintUnit();
       const grams = directGrams();
-      heading.textContent = draft.unitType === 'mass'
-        ? (grams ? t('editor.nutritionInGrams', { g: num(grams, 1) }) : t('editor.nutritionInUnit'))
-        : t('editor.nutritionInPiece', { piece: draft.pieceName.trim() || t('editor.piece') });
+      const ref = positive(draft.refGrams);
+      heading.textContent = ref
+        ? t('editor.nutritionInGrams', { g: num(ref, 1) })
+        : t('editor.nutritionInPiece', { piece: nameForUnit() });
       percentBtn.disabled = !grams && draft.mode !== 'percent';
       hint.textContent = draft.mode === 'percent'
         ? (grams ? t('editor.percentHint', { g: num(grams, 1) }) : t('editor.percentNeedsWeightHint'))
@@ -265,8 +281,8 @@ export function openFoodEditor({ food, kind, initialName = '', initial = null, o
     });
 
     const weightBox = numberField({
-      value: draft.pieceGrams, placeholder: autoGrams ? t('editor.sumOfParts', { g: num(autoGrams, 0) }) : t('common.optional'), suffix: 'g', label: t('editor.totalWeight'),
-      onInput: (text) => { draft.pieceGrams = text; },
+      value: draft.unitG, placeholder: autoGrams ? t('editor.sumOfParts', { g: num(autoGrams, 0) }) : t('common.optional'), suffix: 'g', label: t('editor.totalWeight'),
+      onInput: (text) => { draft.unitG = text; },
     });
     weightBox.input.addEventListener('change', render);
 
@@ -300,12 +316,12 @@ export function openFoodEditor({ food, kind, initialName = '', initial = null, o
       field(t('editor.picture'), picture.el),
       field(t('editor.name'), nameInput),
       k === 'ingredient' ? field(t('editor.barcode'), barcodeInput, t('editor.barcodeHint')) : null,
-      composable
+      composable && typeable
         ? segmented([{ value: 'components', label: t(`kind.${k}.buildFrom`) }, { value: 'direct', label: t('editor.typeValues') }], draft.source,
           (v) => {
             draft.source = v;
             // A composite is always "one piece"; its weight box means something else.
-            if (v === 'components') { draft.unitType = 'piece'; switchMode('amount', false); }
+            if (v === 'components') switchMode('amount', false);
             render();
           }, { label: t('editor.howToDefine') })
         : null,

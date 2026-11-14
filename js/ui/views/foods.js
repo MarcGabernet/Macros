@@ -1,4 +1,4 @@
-// The library: every ingredient, dish and meal you have defined.
+// The library: every product and meal you have defined.
 
 import { h, icon } from '../dom.js';
 import { store } from '../../core/store.js';

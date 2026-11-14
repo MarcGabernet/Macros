@@ -288,8 +288,8 @@ export function foodRow(food, db, nutrients, { onClick, showKind = false, traili
 // ------------------------------------------------------------------ pickers
 
 /**
- * Choose a food from the library. `kinds` limits what can be chosen (a dish may
- * only take ingredients, for example). `onPick(food, sheet)` decides what next.
+ * Choose a food from the library. `kinds` limits what can be chosen (a meal
+ * only takes products, for example). `onPick(food, sheet)` decides what next.
  */
 export function openFoodPicker({ title = t('picker.title'), kinds = KIND_ORDER, onPick }) {
   const sheet = openSheet({ title });

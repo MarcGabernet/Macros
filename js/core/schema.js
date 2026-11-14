@@ -16,26 +16,29 @@ export const SCHEMA_VERSION = 1;
 // `weights` holds weigh-ins, one per day, keyed by date (YYYY-MM-DD).
 export const COLLECTIONS = ['nutrients', 'foods', 'entries', 'weights'];
 
-// "Food" is the general word: an ingredient, a dish and a meal are all foods.
-// They differ only in what they may be composed of. Because a dish can hold
-// ingredients only, and a meal can hold ingredients and dishes but never meals,
-// composition can never loop back on itself.
-// Their names and sentences live in texts.js under `kind.<id>.*`.
-const kind = (id, components) => ({
-  id, components,
+// "Food" is the general word for what you log. There are two kinds:
+// - a product (id 'ingredient', kept from earlier versions): its own typed values;
+// - a meal: built only from products, never typed directly.
+// A meal can't contain a meal, so composition can never loop back on itself.
+// Older versions also had dishes; core/migrate.js turns them into products or meals.
+// Names and sentences live in texts.js under `kind.<id>.*`.
+const kind = (id, { components, direct }) => ({
+  id,
+  components, // which kinds it can be built from
+  direct,     // whether its values can be typed in directly
   get label() { return t(`kind.${id}`); },
   get plural() { return t(`kind.${id}.plural`); },
   get hint() { return t(`kind.${id}.hint`); },
 });
 export const KINDS = {
-  ingredient: kind('ingredient', []),
-  dish: kind('dish', ['ingredient']),
-  meal: kind('meal', ['ingredient', 'dish']),
+  ingredient: kind('ingredient', { components: [], direct: true }),
+  meal: kind('meal', { components: ['ingredient'], direct: false }),
 };
-export const KIND_ORDER = ['ingredient', 'dish', 'meal'];
+export const KIND_ORDER = ['ingredient', 'meal'];
 
 export const allowedComponentKinds = (kind) => KINDS[kind]?.components ?? [];
 export const canBeComposite = (kind) => allowedComponentKinds(kind).length > 0;
+export const canBeDirect = (kind) => KINDS[kind]?.direct ?? true;
 
 // Ways to say "how much" of a food: used for what you eat and for recipe parts.
 export const AMOUNT_TYPES = ['grams', 'units', 'percent'];

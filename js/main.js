@@ -3,6 +3,7 @@
 import { h, icon, trackKeyboard } from './ui/dom.js';
 import { store } from './core/store.js';
 import { today } from './core/dates.js';
+import { clampDay } from './core/days.js';
 import { sync } from './sync/engine.js';
 import { renderDay, logFood } from './ui/views/day.js';
 import { openScanner } from './ui/views/scanner.js';
@@ -38,6 +39,7 @@ const tabBar = h('nav', { class: 'tabbar' });
 /** Change what is on screen, then redraw. */
 function go(patch) {
   const tabChanged = patch.tab && patch.tab !== ui.tab;
+  if (patch.date) patch = { ...patch, date: clampDay(patch.date) }; // only days that can be opened
   Object.assign(ui, patch);
   // Opening a day from the calendar keeps the calendar on that day's period.
   if (patch.date) ui.calDate = patch.date;

@@ -2,13 +2,14 @@
 // here, which stamps it with a time so that devices can be merged later.
 
 import { emptyDb, normalizeDb } from './schema.js';
+import { migrate } from './migrate.js';
 
 const DB_KEY = 'macros.db';
 
 function load() {
   try {
     const raw = localStorage.getItem(DB_KEY);
-    return raw ? normalizeDb(JSON.parse(raw)) : emptyDb();
+    return raw ? migrate(normalizeDb(JSON.parse(raw))) : emptyDb();
   } catch (err) {
     console.error('Could not read saved data', err);
     return emptyDb();
@@ -85,7 +86,7 @@ export const store = {
 
   /** Swap in a whole document (from sync or a backup file). */
   replace(next, { local = false } = {}) {
-    db = normalizeDb(next);
+    db = migrate(normalizeDb(next)); // data from older versions follows today's rules
     commit(local);
   },
 

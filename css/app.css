@@ -732,3 +732,11 @@ table.totals { width: 100%; border-collapse: collapse; font-variant-numeric: tab
 .emoji-btn { aspect-ratio: 1; border: 0; border-radius: 12px; background: var(--surface-2); font-size: 26px; display: inline-flex; align-items: center; justify-content: center; }
 .emoji-btn:active { transform: scale(.94); }
 .pic-btn[hidden] { display: none; }
+
+/* A 
+ in a text (js/texts.js) starts a new line in these places. */
+.switch-sub, .field-hint, .section-note, .card-text, .sheet-text, .notice, .empty-text, .table-note { white-space: pre-line; }
+
+/* Days too far ahead to open */
+.strip-day:disabled, .month-cell:disabled, .day-row .row:disabled { opacity: .35; }
+.icon-btn:disabled { opacity: .3; }

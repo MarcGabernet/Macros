@@ -7,20 +7,21 @@ home screen. No build step, no dependencies: plain HTML, CSS and JavaScript.
 
 - **Foods** come in three kinds. In the code they are all one thing, a *food*,
   that differs only in what it may be made of:
-  - **Ingredient**: has its own values.
-  - **Dish**: built from ingredients (or typed in directly). Never from dishes.
-  - **Meal**: built from ingredients and dishes. Never from meals.
+  - **Product**: has its own values (typed, or filled in by scanning). Names and
+    barcodes are unique.
+  - **Meal**: built from products only. Never from meals, never typed directly.
+  Older data with dishes is converted on load (`js/core/migrate.js`).
 - **One unit** of a food is either a weight (for example 100 g) or one piece
   (1 egg), optionally with a weight. Values are typed as amounts, or as a
   percentage of the unit when the unit has a weight.
 - **Logging**: add what you ate in grams, in units, or as a percentage of a
-  dish or meal.
+  unit or meal.
 - **Day**: macros on top (progress rings once a target is set), then
   minerals and vitamins, a "Current weight" weigh-in and what you ate.
 - **Scan products**: the camera button in the middle scans a product's
   barcode and looks it up in [Open Food Facts](https://world.openfoodfacts.org)
-  (free, open data; only the barcode is sent). A new ingredient opens filled in
-  per 100 g, to check and save. Saved ingredients remember their barcode, so
+  (free, open data; only the barcode is sent). A new product opens filled in
+  per 100 g, to check and save. Saved products remember their barcode, so
   scanning it again finds yours. The barcode can also be typed.
 - **Calendar**: week or month, with daily, weekly and monthly totals and
   graphs of weight, calories and each macro.

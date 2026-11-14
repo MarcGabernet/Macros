@@ -6,6 +6,7 @@ import { entriesByDate, rangeTotals } from '../../core/calc.js';
 import {
   today, addDays, addMonths, weekDays, monthDays, monthWeeks, sameMonth, fmt, fmtRange,
 } from '../../core/dates.js';
+import { isOpenDay, firstOpenDay } from '../../core/days.js';
 import { nutrientNum, withUnit, num } from '../../core/format.js';
 import { activeNutrients, segmented, macroLine, dot } from '../components.js';
 import { toDisplay, ofWhich } from '../../core/nutrients.js';
@@ -65,6 +66,7 @@ function weekView({ ui, go }, db, nutrients, byDate) {
   const stats = rangeTotals(days, byDate, db.foods);
   const main = nutrients[0];
   const tday = today();
+  const first = firstOpenDay(db);
   // Bars compare the days of this week: the scale tops out at the target, or the highest day.
   const scaleMax = main ? Math.max(main.target || 0, ...days.map((d) => stats.perDay.get(d).values[main.id] || 0)) : 0;
 
@@ -72,7 +74,7 @@ function weekView({ ui, go }, db, nutrients, byDate) {
     const day = stats.perDay.get(d);
     const value = main ? day.values[main.id] || 0 : 0;
     return h('div', { class: `row-wrap day-row${d === tday ? ' is-today' : ''}` },
-      h('button', { class: 'row', type: 'button', onClick: () => go({ tab: 'day', date: d }), 'aria-label': t('cal.open', { day: fmt(d, { weekday: 'long', day: 'numeric', month: 'long' }) }) },
+      h('button', { class: 'row', type: 'button', disabled: !isOpenDay(d, first), onClick: () => go({ tab: 'day', date: d }), 'aria-label': t('cal.open', { day: fmt(d, { weekday: 'long', day: 'numeric', month: 'long' }) }) },
         h('div', { class: 'day-label' },
           h('span', { class: 'day-name' }, fmt(d, { weekday: 'short' })),
           h('span', { class: 'day-num' }, fmt(d, { day: 'numeric' }))),
@@ -84,7 +86,7 @@ function weekView({ ui, go }, db, nutrients, byDate) {
               macroLine(day.values, nutrients),
             ]
             : h('span', { class: 'muted' }, t('cal.nothingLogged')))),
-      h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('cal.addOn', { day: fmt(d, { weekday: 'long' }) }), onClick: () => logFood(d) }, icon('plus', 18)));
+      h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('cal.addOn', { day: fmt(d, { weekday: 'long' }) }), disabled: !isOpenDay(d, first), onClick: () => logFood(d) }, icon('plus', 18)));
   });
 
   return {
@@ -101,6 +103,7 @@ function monthView({ ui, go }, db, nutrients, byDate) {
   const stats = rangeTotals(days, byDate, db.foods);
   const main = nutrients[0];
   const tday = today();
+  const first = firstOpenDay(db);
   const scaleMax = main ? Math.max(main.target || 0, ...days.map((d) => stats.perDay.get(d).values[main.id] || 0)) : 0;
 
   const grid = h('div', { class: 'month-grid', style: main ? { '--c': `var(--c-${main.color})` } : null },
@@ -112,7 +115,7 @@ function monthView({ ui, go }, db, nutrients, byDate) {
       // One hue, light to dark: the more eaten that day, the stronger the tint.
       const tint = day.count && scaleMax ? Math.round(10 + 34 * Math.min(1, value / scaleMax)) : 0;
       return h('button', {
-        type: 'button', class: `month-cell${d === tday ? ' is-today' : ''}${day.count ? ' has' : ''}`,
+        type: 'button', class: `month-cell${d === tday ? ' is-today' : ''}${day.count ? ' has' : ''}`, disabled: !isOpenDay(d, first),
         style: { '--tint': `${tint}%` },
         'aria-label': `${fmt(d, { day: 'numeric', month: 'long' })}${day.count && main ? `: ${withUnit(main, value)}` : ''}`,
         onClick: () => go({ tab: 'day', date: d }),

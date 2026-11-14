@@ -6,7 +6,7 @@
 // Photos are kept inside the data (not as links) so they show offline and
 // travel with the Drive file like everything else.
 
-import { h, icon, openSheet } from './dom.js';
+import { h, icon, openSheet, confirmSheet } from './dom.js';
 import { t } from '../texts.js';
 
 const PHOTO_SIZE = 256;      // px, square
@@ -79,7 +79,10 @@ export function pictureField({ get, onChange, getName }) {
   const libInput = h('input', { type: 'file', accept: 'image/*', hidden: true });
   const preview = h('div', { class: 'picture-preview' });
   const note = h('div', { class: 'field-hint' });
-  const removeBtn = h('button', { class: 'pic-btn pic-remove', type: 'button', 'aria-label': t('picture.remove'), title: t('picture.remove'), onClick: () => { onChange(null); paint(); } }, icon('trash', 20));
+  const removeBtn = h('button', { class: 'pic-btn pic-remove', type: 'button', 'aria-label': t('picture.remove'), title: t('picture.remove'), onClick: async () => {
+    const ok = await confirmSheet({ title: t('picture.removeTitle'), message: t('picture.removeText'), confirmLabel: t('common.remove') });
+    if (ok) { onChange(null); paint(); }
+  } }, icon('trash', 20));
 
   function paint() {
     preview.replaceChildren(avatar({ image: get(), name: getName() }, 72));

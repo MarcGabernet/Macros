@@ -37,20 +37,24 @@ export function nutrientNum(nutrient, value) {
 
 export const withUnit = (nutrient, value) => `${nutrientNum(nutrient, value)} ${nutrient.unit}`;
 
-/** What one unit of a food is called: "egg", "dish", "meal"... */
+/** What one unit of a food is called: the food's own name ("2 × Egg"). */
 export function pieceName(food) {
-  return food.unit?.name?.trim() || t(`kind.${food.kind}.piece`);
+  return food.name?.trim() || t(`kind.${food.kind}.piece`);
 }
 
-/** "per 100 g", "per egg · 60 g", "whole dish · 450 g" */
+/** "per 100 g · 1 unit = 60 g", "per unit · 60 g", "whole meal · 450 g" */
 export function unitLabel(food, foods) {
-  if (food.unit?.type === 'mass') return t('unit.perGrams', { g: num(Number(food.unit.grams), 1) });
+  if (food.unit?.type === 'mass') {
+    const per = t('unit.perGrams', { g: num(Number(food.unit.grams), 1) });
+    const piece = Number(food.unit.pieceGrams);
+    return piece > 0 ? `${per} · ${t('unit.oneUnit', { g: num(piece, 0) })}` : per;
+  }
   const grams = unitGrams(food, foods);
-  const head = isComposite(food) ? t(`kind.${food.kind}.whole`) : t('unit.perPiece', { piece: pieceName(food) });
+  const head = isComposite(food) ? t(`kind.${food.kind}.whole`) : t('unit.perOneUnit');
   return grams ? `${head} · ${num(grams, 0)} g` : head;
 }
 
-/** "150 g", "2 × egg", "50% of dish" */
+/** "150 g", "2 × Egg", "50% of Breakfast" */
 export function amountLabel(food, amount) {
   if (!amount) return '';
   const v = num(Number(amount.value), 2);

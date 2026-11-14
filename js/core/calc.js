@@ -1,14 +1,18 @@
 // Nutrition maths. Pure functions over the data: no storage, no screen.
 //
-// A food's values are stored for ONE UNIT of it. A unit is either a weight
-// (e.g. 100 g) or one piece (1 egg, 1 whole dish), optionally with a weight.
+// A food's values are stored for its "value unit":
+// - unit.type 'mass':  per a reference weight (unit.grams, e.g. 100 g); unit.pieceGrams,
+//   if set, is the weight of one countable unit (an egg, a slice), so it can be logged in units.
+// - unit.type 'piece': per one unit of the food (1 egg, 1 whole meal); unit.grams, if set,
+//   is that unit's weight, so it can also be logged in grams.
+// Without any weight a food can only be logged in units.
 // A composite food (built from components) has no stored values: they are
 // worked out from its components every time.
 
 import { KINDS } from './schema.js';
 import { t } from '../texts.js';
 
-const MAX_DEPTH = 4; // meal -> dish -> ingredient is 3 deep; this is only a safety net
+const MAX_DEPTH = 4; // meal -> product is 2 deep; this is only a safety net
 
 export const isComposite = (food) => !!food && food.source === 'components';
 
@@ -44,13 +48,26 @@ export function unitGrams(food, foods, depth = 0) {
   return total > 0 ? total : null;
 }
 
-/** How many units of the food an amount is (0.5 = half of it), or null. */
+/** Grams in one countable unit of the food (an egg, a whole meal), or null when unknown. */
+export function countGrams(food, foods) {
+  if (!food) return null;
+  if (food.unit?.type === 'mass') return Number(food.unit.pieceGrams) > 0 ? Number(food.unit.pieceGrams) : null;
+  return unitGrams(food, foods);
+}
+
+/** How many value units (see the top of this file) an amount is, or null when it can't be told. */
 export function amountFactor(food, amount, foods, depth = 0) {
   if (!food || !amount) return null;
   const v = Number(amount.value);
   if (!Number.isFinite(v)) return null;
-  if (amount.type === 'units') return v;
-  if (amount.type === 'percent') return v / 100;
+  if (amount.type === 'units' || amount.type === 'percent') {
+    const count = amount.type === 'units' ? v : v / 100; // how many countable units
+    if (food.unit?.type !== 'mass') return count;
+    // Values are per reference weight: convert through the weight of one unit.
+    const piece = Number(food.unit.pieceGrams);
+    const ref = Number(food.unit.grams);
+    return piece > 0 && ref > 0 ? (count * piece) / ref : null;
+  }
   if (amount.type === 'grams') {
     const g = unitGrams(food, foods, depth);
     return g ? v / g : null;
@@ -91,7 +108,7 @@ export const entryValues = (entry, foods) => valuesFor(foods[entry.foodId], entr
 /** Which ways of measuring make sense for this food. */
 export function allowedAmountTypes(food, foods) {
   if (!food) return [];
-  if (food.unit?.type === 'mass') return ['grams'];
+  if (food.unit?.type === 'mass') return Number(food.unit.pieceGrams) > 0 ? ['grams', 'units', 'percent'] : ['grams'];
   return unitGrams(food, foods) ? ['units', 'percent', 'grams'] : ['units', 'percent'];
 }
 
@@ -104,8 +121,16 @@ export function defaultAmount(food) {
 export function convertAmount(food, amount, type, foods) {
   const f = amountFactor(food, amount, foods);
   if (f == null) return { type, value: null };
-  if (type === 'units') return { type, value: f };
-  if (type === 'percent') return { type, value: f * 100 };
+  if (type === 'units' || type === 'percent') {
+    // Value units -> countable units (they differ when values are per a reference weight).
+    let count = f;
+    if (food.unit?.type === 'mass') {
+      const piece = Number(food.unit.pieceGrams);
+      if (!(piece > 0)) return { type, value: null };
+      count = (f * Number(food.unit.grams)) / piece;
+    }
+    return { type, value: type === 'units' ? count : count * 100 };
+  }
   const g = unitGrams(food, foods);
   return { type, value: g ? f * g : null };
 }

@@ -5,6 +5,7 @@ import { store } from '../../core/store.js';
 import { KINDS } from '../../core/schema.js';
 import { entriesByDate, entryValues, sumValues } from '../../core/calc.js';
 import { today, addDays, weekDays, fmt } from '../../core/dates.js';
+import { isOpenDay, firstOpenDay, lastOpenDay } from '../../core/days.js';
 import { amountLabel, num, parseNum, inputStr } from '../../core/format.js';
 import { GROUPS } from '../../core/nutrients.js';
 import { avatar } from '../picture.js';
@@ -15,8 +16,8 @@ import {
 import { t } from '../../texts.js';
 
 /**
- * "Current weight" for a day (only when weigh-ins are on in Settings).
- * Today or earlier only: a weigh-in can't be logged for the future.
+ * "Current weight" (only when weigh-ins are on in Settings). Shown on today
+ * only: a weigh-in can't be logged for past or future days.
  */
 function weightCard(db, date) {
   const unit = db.settings.weightUnit || 'kg';
@@ -87,9 +88,10 @@ export function renderDay({ ui, go }) {
   const entries = byDate.get(ui.date) || [];
   const totals = sumValues(entries.map((e) => entryValues(e, db.foods)));
   const tday = today();
+  const first = firstOpenDay(db);
 
   const strip = h('div', { class: 'week-strip' }, weekDays(ui.date, 1).map((d) => h('button', {
-    type: 'button', class: `strip-day${d === ui.date ? ' on' : ''}${d === tday ? ' is-today' : ''}`,
+    type: 'button', class: `strip-day${d === ui.date ? ' on' : ''}${d === tday ? ' is-today' : ''}`, disabled: !isOpenDay(d, first),
     'aria-label': fmt(d, { weekday: 'long', day: 'numeric', month: 'long' }), 'aria-current': d === ui.date ? 'date' : null,
     onClick: () => go({ date: d }),
   },
@@ -121,8 +123,8 @@ export function renderDay({ ui, go }) {
         h('div', { class: 'view-sub' }, fmt(ui.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))),
       h('div', { class: 'head-actions' },
         ui.date !== tday ? h('button', { class: 'pill', type: 'button', onClick: () => go({ date: tday }) }, t('common.today')) : null,
-        h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('day.previous'), onClick: () => go({ date: addDays(ui.date, -1) }) }, icon('left')),
-        h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('day.next'), onClick: () => go({ date: addDays(ui.date, 1) }) }, icon('right')))),
+        h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('day.previous'), disabled: ui.date <= first, onClick: () => go({ date: addDays(ui.date, -1) }) }, icon('left')),
+        h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('day.next'), disabled: ui.date >= lastOpenDay(), onClick: () => go({ date: addDays(ui.date, 1) }) }, icon('right')))),
     strip,
     goalsStrip(totals, nutrients, { isToday: ui.date === tday }),
     summaryCard(totals, nutrients),
@@ -133,7 +135,7 @@ export function renderDay({ ui, go }) {
         h('div', { class: 'section-head' }, h('h2', {}, g.label)),
         nutrientListCard(totals, list)) : null;
     }),
-    (db.settings.weightMode || 'weighins') === 'weighins' && ui.date <= tday ? weightCard(db, ui.date) : null,
+    (db.settings.weightMode || 'weighins') === 'weighins' && ui.date === tday ? weightCard(db, ui.date) : null,
     h('section', {},
       h('div', { class: 'section-head' },
         h('h2', {}, t('day.eaten')),
